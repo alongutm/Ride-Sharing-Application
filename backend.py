@@ -1,10 +1,10 @@
-from database import Database
+from azureDatabase import AzureDatabase
 
 
-class Backend():
+class Backend:
 
     def __init__(self):
-        self.db = Database()
+        self.db = AzureDatabase()
 
     def login(self, username, password) -> tuple:
 

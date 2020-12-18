@@ -1,7 +1,10 @@
+from abc import ABC
+
 import pyodbc
+from Idatabase import Database
 
 
-class Database:
+class AzureDatabase(Database, ABC):
     def __init__(self):
         self.server = 'tcp:bgride-db.database.windows.net'
         self.database = 'BGRIde'
@@ -40,7 +43,7 @@ class Database:
 
         return results
 
-    def insert_query(self, table, values_dict) -> bool:
+    def insert_query(self, table: str, values_dict: dict) -> bool:
         fields_query = "("
         values_query = "("
         for field in values_dict.keys():
