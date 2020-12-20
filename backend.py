@@ -53,7 +53,8 @@ class Backend:
 
         return True
 
-    def add_new_ride(self, user_id: int, location: str, exit_time: str, exit_date: str, num_of_riders_capacity: list, cost: int, ride_kind: list, pick_up_places: list) -> bool:
+    def add_new_ride(self, user_id: int, location: str, exit_time: str, exit_date: str, num_of_riders_capacity: list,
+                     cost: int, ride_kind: list, pick_up_places: list) -> bool:
 
         values_dict = {'uid': user_id,
                        'location': location,
@@ -63,7 +64,7 @@ class Backend:
                        'numOfRidersCapacity': num_of_riders_capacity,
                        'cost': cost,
                        'rideKind': ride_kind,
-                        'pickUpPlaces': pick_up_places}
+                       'pickUpPlaces': pick_up_places}
 
         if not self.db.insert_query('Rides', values_dict):
             return False
@@ -99,12 +100,6 @@ class Backend:
         terms_dict['uid'] = user_id_passenger
 
         if not self.db.insert_query('Riders', terms_dict):
-            return False,  "Failed adding you to the ride. Please try again later."
+            return False, "Failed adding you to the ride. Please try again later."
 
         return True, "You have been successfully joined the ride!"
-
-
-
-
-
-
