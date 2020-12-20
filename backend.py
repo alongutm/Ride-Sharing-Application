@@ -29,14 +29,17 @@ class Backend:
         else:
             return True, False
 
-    def register(self, username, first_name, last_name, password, email, phone_number) -> bool:
-
+    def check_if_username_taken(self, username):
         terms_dict = {'username': username}
 
         results = self.db.select_query('Users', terms_dict)
 
         if len(results) == 1:
             return False
+
+        return True
+
+    def register(self, username, first_name, last_name, password, email, phone_number) -> bool:
 
         values_dict = {'username': username,
                        'firstName': first_name,
