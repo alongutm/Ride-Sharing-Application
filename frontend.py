@@ -39,6 +39,7 @@ def pop_error_message_box(window_title, error_text_message):
     msg.setText(error_text_message)
     msg.exec_()
 
+
 def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
     """
        Calculate the great circle distance between two points
@@ -54,7 +55,6 @@ def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
     c = 2 * asin(sqrt(a))
     r = 6371  # Radius of earth in kilometers. Use 3956 for miles
     return c * r < max_dist
-
 
 
 class MainWindow(QWidget):
@@ -102,7 +102,6 @@ class MainWindow(QWidget):
         self.user_map = None
 
         self.map = None
-
 
     def set_login_window(self):
         self.clean_layout()
@@ -320,7 +319,7 @@ class MainWindow(QWidget):
 
         # set buttons
         self.search_ride_button = generate_button("Search For A Ride")
-        self.search_ride_button.clicked.connect(self.set_search_window)
+        self.search_ride_button.clicked.connect(self.set_search_window_first_step)
         self.layout.addWidget(self.search_ride_button, 0, 0)
         self.setLayout(self.layout)
 
@@ -330,8 +329,8 @@ class MainWindow(QWidget):
 
         if self.map is None:
             self.map = MapWindow()
-        else:
-            self.map.show_map()
+
+        self.map.show_map()
         # self.map_locations.show()
         # print(self.map_locations)
 
@@ -344,24 +343,29 @@ class MainWindow(QWidget):
         # self.map_destinations.mapWidget.show()
         # print(self.map_destinations)
 
-    def set_search_window(self):
+    def set_search_window_first_step(self):
         self.clean_layout()
 
         # location button
-        self.location_button = generate_button('Select location')
+        self.location_button = generate_button('Select start location')
         self.location_button.clicked.connect(self.set_map_loc_selector)
         self.layout.addWidget(self.location_button, 2, 1)
 
-        # destination button
-        self.button_destination = generate_button('Select destination')
-        self.button_destination.clicked.connect(self.set_map_dest_selector)
-        self.layout.addWidget(self.button_destination, 2, 0)
+        # next step button
+        self.next_button = generate_button('Next')
+        self.next_button.clicked.connect(self.set_search_window_second_step)
+        self.layout.addWidget(self.next_button, 3, 1)
 
-        # radius
-        self.label_radius = generate_label('Max distance from destination')
-        self.lineEdit_radius = generate_input_text_filed("Please enter your max distance (in KM)")
-        self.layout.addWidget(self.label_radius, 0, 0)
-        self.layout.addWidget(self.lineEdit_radius, 0, 1)
+        # # destination button
+        # self.button_destination = generate_button('Select destination')
+        # self.button_destination.clicked.connect(self.set_map_dest_selector)
+        # self.layout.addWidget(self.button_destination, 2, 0)
+
+        # # radius
+        # self.label_radius = generate_label('Max distance from destination')
+        # self.lineEdit_radius = generate_input_text_filed("Please enter your max distance (in KM)")
+        # self.layout.addWidget(self.label_radius, 0, 0)
+        # self.layout.addWidget(self.lineEdit_radius, 0, 1)
 
         # date time
         # self.label_password = generate_label('Password')
@@ -371,6 +375,90 @@ class MainWindow(QWidget):
         # self.layout.addWidget(self.lineEdit_password, 1, 1)
 
         self.setLayout(self.layout)
+
+    def set_search_window_second_step(self):
+        if self.map is not None and self.map.current_lat is not None:
+            self.clean_layout()
+
+            # save user location selected
+            self.selected_loc_x = self.map.current_lat
+            self.selected_loc_y = self.map.current_lang
+
+            # initialize map values
+            self.map.current_lang = None
+            self.map.current_lat = None
+
+            # self.map.show_map()
+
+            # destination button
+            self.button_destination = generate_button('Select destination')
+            self.button_destination.clicked.connect(self.set_map_dest_selector)
+            self.layout.addWidget(self.button_destination, 2, 1)
+
+            # next step button
+            self.next_button = generate_button('Next')
+            self.next_button.clicked.connect(self.set_search_window_third_step)
+            self.layout.addWidget(self.next_button, 3, 1)
+
+            self.setLayout(self.layout)
+        else:  # TODO pop up - not select destination yet
+            pass
+
+    def set_search_window_third_step(self):
+        if self.map.current_lat is not None:
+            self.clean_layout()
+
+            # # save user location selected
+            # self.selected_loc_x = self.map.current_lat
+            # self.selected_loc_y = self.map.current_lang
+            #
+            # # initialize map values
+            # self.map.current_lang = None
+            # self.map.current_lat = None
+            #
+            # self.map.show_map()
+            #
+            # # destination button
+            # self.button_destination = generate_button('Select destination')
+            # self.button_destination.clicked.connect(self.set_map_dest_selector)
+            # self.layout.addWidget(self.button_destination, 2, 1)
+            #
+            # # next step button
+            # self.next_button = generate_button('Next')
+            # self.next_button.clicked.connect(self.set_search_window_third_step)
+            # self.layout.addWidget(self.next_button, 3, 1)
+            #
+            # self.setLayout(self.layout)
+        else:  # TODO pop up - not select destination yet
+            pass
+
+    # def set_search_window_first_step(self):
+    #     self.clean_layout()
+    #
+    #     # location button
+    #     self.location_button = generate_button('Select start location')
+    #     self.location_button.clicked.connect(self.set_map_loc_selector)
+    #     self.layout.addWidget(self.location_button, 2, 1)
+    #
+    #     # # destination button
+    #     # self.button_destination = generate_button('Select destination')
+    #     # self.button_destination.clicked.connect(self.set_map_dest_selector)
+    #     # self.layout.addWidget(self.button_destination, 2, 0)
+    #
+    #     # # radius
+    #     # self.label_radius = generate_label('Max distance from destination')
+    #     # self.lineEdit_radius = generate_input_text_filed("Please enter your max distance (in KM)")
+    #     # self.layout.addWidget(self.label_radius, 0, 0)
+    #     # self.layout.addWidget(self.lineEdit_radius, 0, 1)
+    #
+    #     # date time
+    #     # self.label_password = generate_label('Password')
+    #     # self.lineEdit_password = generate_input_text_filed("Please enter your password")
+    #     # self.lineEdit_password.setEchoMode(QLineEdit.Password)
+    #     # self.layout.addWidget(self.label_password, 1, 0)
+    #     # self.layout.addWidget(self.lineEdit_password, 1, 1)
+    #
+    #     self.setLayout(self.layout)
 
     def set_selected_destination(self, x, y):
         self.selected_destination_x = x
@@ -396,15 +484,15 @@ class MapWindow(QWidget):
         self.current_lang = None
         self.places = []
 
-
         # Working with the maps with pyqtlet
         self.map = L.map(self.mapWidget)
         self.map.setView([31.256974278389507, 34.79832234475968], 14)
 
+
         self.set_new_ride_on_click()
 
         L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)
-        self.marker = L.marker([75.262070, 34.798280], {'opacity': 1})
+        self.marker = L.marker([75.262070, 34.798280], {'opacity': 0})
         self.marker.bindPopup('Sharmuta in this place')
         self.map.addLayer(self.marker)
 
@@ -424,6 +512,10 @@ class MapWindow(QWidget):
     def show_map(self):
         self.mapWidget.show()
         self.show()
+
+    def get_lat_and_lng(self):
+        if self.current_lat is not None:
+            return self.current_lat, self.current_lang
 
     def check_selected_location(self):
         if self.current_lang is None:
@@ -446,10 +538,10 @@ class MapWindow(QWidget):
     def set_new_ride_on_click(self):
         self.map.clicked.connect(lambda x: self.set_lng_and_lat(x))
 
-    def set_lng_and_lat(self, x):
+    def set_lng_and_lat(self, location_pressed):
         # get current x,y of user's mouse press
-        lat = x['latlng']['lat']
-        lang = x['latlng']['lng']
+        lat = location_pressed['latlng']['lat']
+        lang = location_pressed['latlng']['lng']
         # print(f"lat is {lat} and lang is {lang}")
         if self.current_lang is not None:
             # remove previous point
@@ -466,17 +558,18 @@ class MapWindow(QWidget):
         # self.check_selected_location(lat, lang)
         print("lang is", lang)
 
-        buttonReply = QMessageBox.question(self, 'Message', "Is it your desired location?",
-                                           QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if buttonReply == QMessageBox.Yes:
+        button_reply = QMessageBox.question(self, 'Message', "Is it your desired location?",
+                                            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if button_reply == QMessageBox.Yes:
             print('Yes clicked.')
-            if self.parent.user_map == "location":
-                self.parent.set_selected_location(lat, lang)
-                print("selected location lang is", lang)
-            else:
-                self.parent.set_selected_destination(lat, lang)
-                print("selected destination lang is", lang)
-            self.close()
+            # if self.map.user_map == "location":
+            #     print("selected location lang is", lang)
+            # else:
+            #     self.parent.set_selected_destination(lat, lang)
+            #     print("selected destination lang is", lang)
+            self.mapWidget.hide()
+            self.hide()
+            # self.close()
             # self.hide()
 
         else:
