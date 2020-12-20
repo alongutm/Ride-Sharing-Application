@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QVBoxLayout, QWidget, QLabel, QPushButton
+from PyQt5.QtWidgets import QApplication, QVBoxLayout, QWidget, QLabel, QPushButton, QMessageBox
 from pyqtlet import L, MapWidget
 from math import radians, cos, sin, asin, sqrt
 
@@ -20,27 +20,40 @@ def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
     r = 6371  # Radius of earth in kilometers. Use 3956 for miles
     return c * r < max_dist
 
+def generate_button(button_text):
+    button = QPushButton(button_text)
+    font_size = button.font()
+    font_size.setPointSize(14)
+    button.setFont(font_size)
+    button.setFixedWidth(380)
+    return button
+
 
 class MapWindow(QWidget):
-    def __init__(self):
+    def __init__(self, parent_window):
         # Setting up the widgets and layout
         super().__init__()
         self.mapWidget = MapWidget()
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.mapWidget)
+        self.setWindowTitle('BGRide Map')
         self.setLayout(self.layout)
+        # self.button = generate_button('Confirm Location')
+        # self.button.clicked.connect(self.check_selected_location)
+        self.parent = parent_window
         self.current_lat = None
         self.current_lang = None
         self.places = []
+
 
         # Working with the maps with pyqtlet
         self.map = L.map(self.mapWidget)
         self.map.setView([31.256974278389507, 34.79832234475968], 14)
 
-        # self.set_new_ride_on_click()
+        self.set_new_ride_on_click()
 
         L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)
-        self.marker = L.marker([31.262070, 34.798280], {'opacity': 1})
+        self.marker = L.marker([75.262070, 34.798280], {'opacity': 1})
         self.marker.bindPopup('Sharmuta in this place')
         self.map.addLayer(self.marker)
 
@@ -56,6 +69,29 @@ class MapWindow(QWidget):
         # self.map.runJavaScript(f'{self.marker.jsName}.setIcon(markerIcon);')
         # self.map
         self.show()
+        # self.map.show()
+
+
+    def show_map(self):
+        self.show()
+
+    def check_selected_location(self):
+        if self.current_lang is None:
+            return False
+        self.hide()
+        self.parent.set_selected_location(self.current_lat, self.current_lang)
+        self.current_lang = None
+        self.current_lat = None
+        return True
+
+    def check_selected_destination(self):
+        if self.current_lang is None:
+            return False
+        self.hide()
+        self.parent.set_selected_destination(self.current_lat, self.current_lang)
+        self.current_lang = None
+        self.current_lat = None
+        return True
 
     def set_new_ride_on_click(self):
         self.map.clicked.connect(lambda x: self.set_lng_and_lat(x))
@@ -76,6 +112,26 @@ class MapWindow(QWidget):
         self.marker.bindPopup('New Ride')
         self.map.addLayer(self.marker)
 
+        # self.check_selected_destination(lat, lang)
+        # self.check_selected_location(lat, lang)
+        print("lang is", lang)
+
+        buttonReply = QMessageBox.question(self, 'Message', "Is it your desired location?",
+                                           QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if buttonReply == QMessageBox.Yes:
+            print('Yes clicked.')
+            if self.parent.user_map == "location":
+                self.parent.set_selected_location(lat, lang)
+                print("selected location lang is", lang)
+            else:
+                self.parent.set_selected_destination(lat, lang)
+                print("selected destination lang is", lang)
+            self.close()
+            # self.hide()
+
+        else:
+            print('No clicked.')
+
     def show_rides_on_map(self, places_list):
         self.places = places_list
         for place in self.places:
@@ -88,10 +144,13 @@ class MapWindow(QWidget):
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    widget = MapWindow()
-    places = [[2, 3, "Big Beer Sheva", 31.242817, 34.8108412, "16:30", "20/12/20", 1, 3, 20, "Pleasure", "places pick up"],
-              [3, 1, "Baraka", 31.23931426638609, 34.79268091645712, "22:30", "22/12/20", 1, 3, 25, "Pleasure", "places pick up"]]
-    widget.show_rides_on_map(places)
-    # check_if_close_enough(31.23877283432704, 34.790932878768515, 31.23931426638609, 34.79268091645712, 0.5)
-    sys.exit(app.exec_())
+    a = 3
+    # app = QApplication(sys.argv)
+    # parent = MainWindow()
+    # widget = MapWindow(parent)
+    # places = [[2, 3, "Big Beer Sheva", 31.242817, 34.8108412, "16:30", "20/12/20", 1, 3, 20, "Pleasure", "places pick up"],
+    #           [3, 1, "Baraka", 31.23931426638609, 34.79268091645712, "22:30", "22/12/20", 1, 3, 25, "Pleasure", "places pick up"]]
+    # widget.show_rides_on_map(places)
+    #
+    # # check_if_close_enough(31.23877283432704, 34.790932878768515, 31.23931426638609, 34.79268091645712, 0.5)
+    # sys.exit(app.exec_())
