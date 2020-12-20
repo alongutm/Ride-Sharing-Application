@@ -12,7 +12,7 @@ class Database(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def select_query(self, table: str, terms_dict: dict):
+    def select_query(self, table: str, terms_dict: dict) -> bool:
         pass
 
     @abc.abstractmethod
