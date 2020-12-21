@@ -1,10 +1,12 @@
 import sys
 from backend import Backend
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, \
+    QVBoxLayout, QDateTimeEdit, QCalendarWidget
 from PyQt5.QtGui import QImage, QPalette, QBrush, QIcon, QPixmap, QIntValidator, QRegExpValidator
-from PyQt5.QtCore import Qt, QRegExp
+from PyQt5.QtCore import Qt, QRegExp, QDateTime, QDate
 from pyqtlet import L, MapWidget
 from math import radians, cos, sin, asin, sqrt
+from datetime import datetime
 
 
 def generate_button(button_text):
@@ -100,6 +102,9 @@ class MainWindow(QWidget):
         self.map_destinations = None
         # set current user map select
         self.user_map = None
+
+        # set user selected date
+        self.selected_date = None
 
         self.map = None
 
@@ -408,29 +413,41 @@ class MainWindow(QWidget):
         if self.map.current_lat is not None:
             self.clean_layout()
 
-            # # save user location selected
-            # self.selected_loc_x = self.map.current_lat
-            # self.selected_loc_y = self.map.current_lang
-            #
-            # # initialize map values
-            # self.map.current_lang = None
-            # self.map.current_lat = None
-            #
-            # self.map.show_map()
-            #
-            # # destination button
-            # self.button_destination = generate_button('Select destination')
-            # self.button_destination.clicked.connect(self.set_map_dest_selector)
-            # self.layout.addWidget(self.button_destination, 2, 1)
-            #
-            # # next step button
-            # self.next_button = generate_button('Next')
-            # self.next_button.clicked.connect(self.set_search_window_third_step)
-            # self.layout.addWidget(self.next_button, 3, 1)
-            #
-            # self.setLayout(self.layout)
+            # save user location selected
+            self.selected_destination_x = self.map.current_lat
+            self.selected_destination_y = self.map.current_lang
+
+            # initialize map values
+            self.map.current_lang = None
+            self.map.current_lat = None
+
+            # set calendar
+            self.calendar = QCalendarWidget(self)
+            self.calendar.move(112, 112)
+            self.calendar.setGridVisible(True)
+            self.calendar.setGeometry(100, 180, 200, 150)
+            currentMonth = datetime.now().month
+            currentYear = datetime.now().year
+            currentDay = datetime.now().day
+            print(f"current month is {currentMonth} and curr year is {currentYear} and curr ay is {currentDay} ")
+            self.calendar.setMinimumDate(QDate(currentYear, currentMonth, currentDay))
+            self.calendar.clicked.connect(self.save_date)
+            # self.layout.addWidget(self.calendar)
+            self.calendar.adjustSize()
+            self.calendar.show()
+
+            # search step button
+            self.next_button = generate_button('Next')
+            self.next_button.clicked.connect(self.set_search_window_second_step)
+            self.layout.addWidget(self.next_button, 3, 1)
+
+            self.setLayout(self.layout)
         else:  # TODO pop up - not select destination yet
             pass
+
+    def save_date(self):
+        self.selected_date = self.calendar.selectedDate()
+        print(self.selected_date)
 
     # def set_search_window_first_step(self):
     #     self.clean_layout()
@@ -487,7 +504,6 @@ class MapWindow(QWidget):
         # Working with the maps with pyqtlet
         self.map = L.map(self.mapWidget)
         self.map.setView([31.256974278389507, 34.79832234475968], 14)
-
 
         self.set_new_ride_on_click()
 
