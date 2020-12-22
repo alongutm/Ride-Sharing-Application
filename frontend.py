@@ -373,7 +373,7 @@ class MainWindow(QWidget):
         # select date button
         self.button_set_calender_window = generate_button('3. Select Exit Date')
         self.button_set_calender_window.clicked.connect(self.show_calender)
-        self.button_set_calender_window.setDisabled(False) # TODO: change back later to True
+        self.button_set_calender_window.setDisabled(True)
         self.layout.addWidget(self.button_set_calender_window, 2, 0)
 
         # set calender at row 3 at the layout
@@ -457,7 +457,7 @@ class MainWindow(QWidget):
         self.setLayout(self.layout)
 
     def add_new_ride(self):
-        
+
         # dictionary of start location and destination key: 'start_location', 'end_location'
         print(f"selected start_location: {self.map.locations['start_location'].latLng[0]}, {self.map.locations['start_location'].latLng[1]}")
         print(f"selected end_location: {self.map.locations['end_location'].latLng[0]}, {self.map.locations['end_location'].latLng[1]}") # dictionary of start location and destination key: 'start_location', 'end_location'
