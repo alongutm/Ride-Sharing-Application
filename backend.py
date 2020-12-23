@@ -1,5 +1,7 @@
 from azureDatabase import AzureDatabase
 import googlemaps
+from math import radians, cos, sin, asin, sqrt
+import datetime
 
 
 class Backend:
@@ -96,7 +98,32 @@ class Backend:
 
         return True
 
-    def join_ride(self, user_id_passenger: int, ride_id: int, ride_kind: list) -> tuple: # TODO: the ride kind comes in list or string??
+    def search_ride(self, user_id: str, end_location_lat: str, end_location_lng: str, exit_time: str, exit_date: str,
+                    radius: str) -> bool:
+
+        values_dict = {
+            'uid': user_id
+            # 'end_location_lat': end_location_lat,
+            # 'end_location_lng': end_location_lng,
+            # 'exitTime': exit_time,
+            # 'exitDate': exit_date,
+            # 'radius': radius,
+        }
+        # select rides with the user's date
+        results = self.db.select_query('Rides', values_dict)
+        # filtering rides by 2 hours before and after the time the user entered
+        results_after_date_check = filter_by_time(results, exit_date, exit_time)
+        # filtering rides by the maximal accepted radius away from the user's destination
+        results_after_radius_check = filter_by_radius(
+            results_after_date_check,
+            end_location_lat,
+            end_location_lng,
+            radius
+        )
+        return results_after_radius_check
+
+    def join_ride(self, user_id_passenger: int, ride_id: int,
+                  ride_kind: list) -> tuple:  # TODO: the ride kind comes in list or string??
         terms_dict = {'rid': ride_id}
 
         rides_results = self.db.select_query('Rides', terms_dict)
@@ -145,3 +172,50 @@ class Backend:
             if any(char.isdigit() for char in current_res['formatted_address']) and any(
                     c.isalpha() for c in current_res['formatted_address']):
                 return current_res['formatted_address']
+
+
+def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
+    """
+       Calculate the great circle distance between two points
+       on the earth (specified in decimal degrees)
+       """
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(radians, [y_loc_main, x_loc_main, y_loc, x_loc])
+
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+    r = 6371  # Radius of earth in kilometers. Use 3956 for miles
+    return c * r < max_dist
+
+
+def filter_by_time(results, date_user, hour_user):
+    filtered_res = []
+    for res in results:
+        time_user_earlier = datetime.time(int(hour_user[:2]) + 2, int(hour_user[3:]), 00)
+        time_user_later = datetime.time(int(hour_user[:2]) - 2, int(hour_user[3:]), 00)
+        res_time = datetime.time(int(res[6][:2]), int(res[6][3:]), 00)
+        # check if the time is in range of +-2 hours from the user time
+        if is_time_between(time_user_later, time_user_earlier, res_time):
+            filtered_res.append(res)
+
+    return filtered_res
+
+
+def is_time_between(begin_time, end_time, check_time):
+    if begin_time < end_time:
+        return begin_time <= check_time <= end_time
+    else:  # crosses midnight
+        return check_time >= begin_time or check_time <= end_time
+
+
+def filter_by_radius(results_after_date_check, x_user, y_user, radius):
+    results = []
+    for res in results_after_date_check:
+        x = float(res[4])
+        y = float(res[5])
+        if check_if_close_enough(x, y, x_user, y_user, radius):
+            results.append(res)
+    return results
