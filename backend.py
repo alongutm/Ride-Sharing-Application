@@ -1,10 +1,19 @@
 from azureDatabase import AzureDatabase
+import googlemaps
 
 
 class Backend:
 
     def __init__(self):
         self.db = AzureDatabase()
+
+        self.g_maps_api_key = 'AIzaSyD2mZwWRBcD3vbRFmvtJzcQCyCpNpzkrws'
+
+        self.g_maps = googlemaps.Client(key=self.g_maps_api_key)
+
+        self.rise_purposes_list = ['bakery', 'restaurant', 'pharmacy', 'bank', 'atm', 'park', 'pet_store',
+                                   'police', 'doctor', 'supermarket', 'gym', 'hospital', 'university', 'synagogue',
+                                   'stadium', 'night_club', 'library', 'home_goods_store', 'movie_theater']
 
     def login(self, username, password) -> tuple:
 
@@ -24,10 +33,10 @@ class Backend:
         is_admin = True if len(results) == 1 else False
 
         if is_admin:
-            return True, True
+            return True, True, user_id
 
         else:
-            return True, False
+            return True, False, user_id
 
     def check_if_username_taken(self, username):
         terms_dict = {'username': username}
@@ -51,27 +60,43 @@ class Backend:
         if not self.db.insert_query('Users', values_dict):
             return False
 
+        res = self.db.select_query('Users', {'username': username})
+
+        user_id = res[0][0]
+
+        if not self.db.insert_query('Preferences', {'uid': user_id}):
+            return False
+
         return True
 
-    def add_new_ride(self, user_id: int, location: str, exit_time: str, exit_date: str, num_of_riders_capacity: list,
-                     cost: int, ride_kind: list, pick_up_places: list) -> bool:
+    def add_new_ride(self, user_id: int, start_location_lat: str, start_location_lng: str, end_location_lat: str,
+                     end_location_lng: str, exit_time: str, exit_date: str, num_of_riders_capacity: list,
+                     cost: int, ride_kind: list) -> bool:
+
+        ride_kind_str = ','.join(ride_kind)
 
         values_dict = {'uid': user_id,
-                       'location': location,
+                       'start_location_lat': start_location_lat,
+                       'start_location_lng': start_location_lng,
+                       'end_location_lat': end_location_lat,
+                       'end_location_lng': end_location_lng,
                        'exitTime': exit_time,
                        'exitDate': exit_date,
                        'numOfRiders': 0,
                        'numOfRidersCapacity': num_of_riders_capacity,
                        'cost': cost,
-                       'rideKind': ride_kind,
-                       'pickUpPlaces': pick_up_places}
+                       'rideKind': ride_kind_str
+                       }
 
         if not self.db.insert_query('Rides', values_dict):
             return False
 
+        if not self.db.update_query_increment('Preferences', ride_kind, {'uid': user_id}):
+            return False
+
         return True
 
-    def join_ride(self, user_id_passenger: int, ride_id: int) -> tuple:
+    def join_ride(self, user_id_passenger: int, ride_id: int, ride_kind: list) -> tuple: # TODO: the ride kind comes in list or string??
         terms_dict = {'rid': ride_id}
 
         rides_results = self.db.select_query('Rides', terms_dict)
@@ -103,3 +128,20 @@ class Backend:
             return False, "Failed adding you to the ride. Please try again later."
 
         return True, "You have been successfully joined the ride!"
+
+    def get_ride_purposes(self, lat, lng) -> list:
+        potential_ride_purpose_list = []
+        for potential_purpose in self.rise_purposes_list:
+            res = self.g_maps.places_nearby(location=f'{lat},{lng}', radius=200, open_now=False,
+                                            type=potential_purpose)
+            if res['status'] == 'OK':
+                potential_ride_purpose_list.append(potential_purpose)
+
+        return potential_ride_purpose_list
+
+    def get_address_by_lan_lng(self, lat, lng) -> str:
+        results = self.g_maps.reverse_geocode(f'{lat},{lng}')
+        for current_res in results:
+            if any(char.isdigit() for char in current_res['formatted_address']) and any(
+                    c.isalpha() for c in current_res['formatted_address']):
+                return current_res['formatted_address']

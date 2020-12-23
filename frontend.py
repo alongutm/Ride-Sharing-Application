@@ -1,22 +1,23 @@
 import sys
 from backend import Backend
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, \
-    QVBoxLayout, QDateTimeEdit, QCalendarWidget
+    QVBoxLayout, QDateTimeEdit, QCalendarWidget, QCheckBox
 from PyQt5.QtGui import QImage, QPalette, QBrush, QIcon, QPixmap, QIntValidator, QRegExpValidator
 from PyQt5.QtCore import Qt, QRegExp, QDateTime, QDate, pyqtSignal, pyqtSlot
 from pyqtlet import L, MapWidget
 from math import radians, cos, sin, asin, sqrt
-from datetime import datetime
+import datetime
 
 
-def generate_button(button_text):
+def generate_button(button_text, size=14):
     button = QPushButton(button_text)
     font_size = button.font()
-    font_size.setPointSize(14)
+    font_size.setPointSize(size)
     button.setFont(font_size)
     button.setFixedWidth(380)
-    button.setStyleSheet("QPushButton { background-color: rgba(0,0,255,25%); border-style: outset; border-width: 4px; border-radius: 10px; border-color: beige; opacity: 0.5; }"
-                         "QPushButton:hover { background-color: rgba(0,0,255,70%)}")
+    button.setStyleSheet(
+        "QPushButton { background-color: rgba(0,0,255,25%); border-style: outset; border-width: 4px; border-radius: 10px; border-color: beige; opacity: 0.5; }"
+        "QPushButton:hover { background-color: rgba(0,0,255,70%)}")
     return button
 
 
@@ -62,16 +63,22 @@ def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
 
 
 class MainWindow(QWidget):
-
+    # map signals
     first_signal = pyqtSignal()
     second_signal = pyqtSignal()
+
+    # checkbox signals
+    checkbox_signal = pyqtSignal()
 
     def __init__(self, *args):
         super(MainWindow, self).__init__(*args)
 
         self.first_signal.connect(self.signal_enable_select_destination)
         self.second_signal.connect(self.signal_enable_select_date)
+        self.checkbox_signal.connect(self.add_new_ride)
+
         self.backend = Backend()
+
         # set window title
         self.setWindowTitle('BGRide')
 
@@ -115,6 +122,10 @@ class MainWindow(QWidget):
         self.selected_date = None
         self.calendar = None
         self.map = MapWindow(self)
+        self.checkbox = CheckBox(self)
+
+        # id of logged in user
+        self.current_user_id = 0
 
     def signal_enable_select_destination(self):
         self.location_button.setText('1. Select Start Location  √')
@@ -304,7 +315,7 @@ class MainWindow(QWidget):
         footer.move(0, 820)
 
     def check_credentials(self):
-        self.set_after_login_window() # TODO: delete later
+        # self.set_after_login_window()  # TODO: delete later
         msg = QMessageBox()
         msg.setWindowIcon(QIcon("assets/icon.png"))
 
@@ -322,6 +333,7 @@ class MainWindow(QWidget):
                 msg.setWindowTitle('Success')
                 msg.setText('Succeeded login in.')
                 msg.exec_()
+                self.current_user_id = res_log[2]
                 self.set_after_login_window()
 
         # login_res = self.backend.login(self.lineEdit_username, self.lineEdit_password)
@@ -342,12 +354,10 @@ class MainWindow(QWidget):
         self.add_new_ride_button.clicked.connect(self.set_add_ride_window)
         self.layout.addWidget(self.add_new_ride_button, 0, 0)
 
-
         # set buttons
         self.search_ride_button = generate_button("Search Ride")
         # self.search_ride_button.clicked.connect(self.set_search_window_first_step) # TODO:
         self.layout.addWidget(self.search_ride_button, 1, 0)
-
 
         self.back_to_login_button = generate_button("logout")
         self.back_to_login_button.clicked.connect(self.set_login_window)
@@ -405,66 +415,136 @@ class MainWindow(QWidget):
         # select cost button
         self.button_select_cost = generate_button('5. Select Cost Per Person')
         self.button_select_cost.clicked.connect(self.show_cost_field_and_button)
-        self.layout.addWidget(self.button_select_cost, 8, 0)
         self.button_select_cost.setDisabled(True)
+        self.layout.addWidget(self.button_select_cost, 8, 0)
 
-        # set cost field
+        # set cost field #
         self.text_field_cost = self.set_cost_field()
+        cost_validator = QIntValidator(0, 999, self)
+        self.text_field_cost.setValidator(cost_validator)
+        self.text_field_cost.setMaxLength(3)
+        self.text_field_cost.setPlaceholderText('Cost per person in Shekels ₪')
         self.layout.addWidget(self.text_field_cost, 9, 0)
 
-        # set cost button
+        # 'set cost' button
         self.button_set_cost = generate_button('Set Cost')
         self.button_set_cost.clicked.connect(self.close_cost_field_and_button)
         self.layout.addWidget(self.button_set_cost, 10, 0)
         self.button_set_cost.hide()
 
+        # select how many passengers button
+        self.button_select_riders_amount = generate_button('6. Select Passengers Amount')
+        self.button_select_riders_amount.clicked.connect(self.open_passengers_field_and_set_button)
+        self.layout.addWidget(self.button_select_riders_amount, 11, 0)
+        self.button_select_riders_amount.setDisabled(True)
+
+        # set passengers amounts
+        self.text_field_passengers = self.set_cost_field()
+        passenges_validator = QIntValidator(1, 4, self)
+        self.text_field_passengers.setValidator(passenges_validator)
+        self.text_field_passengers.setMaxLength(1)
+        self.text_field_passengers.setPlaceholderText('1 - 4 Passengers')
+        self.layout.addWidget(self.text_field_passengers, 12, 0)
+
+        # 'set passengers amount' button
+        self.button_set_riders_amount = generate_button('Set Passengers Amount')
+        self.button_set_riders_amount.clicked.connect(self.close_passengers_field_and_set_button)
+        self.layout.addWidget(self.button_set_riders_amount, 13, 0)
+        self.button_set_riders_amount.hide()
+
         # add new ride button
         self.button_add_new_ride = generate_button('Add New Ride')
-        self.button_add_new_ride.clicked.connect(self.add_new_ride)
-        self.layout.addWidget(self.button_add_new_ride, 11, 0)
+        self.button_add_new_ride.clicked.connect(self.choose_ride_purposes)
+        self.layout.addWidget(self.button_add_new_ride, 14, 0)
         self.button_add_new_ride.setDisabled(True)
 
         # back to after login window
         self.button_back_to_after_login_window = generate_button('back')
         self.button_back_to_after_login_window.clicked.connect(self.set_after_login_window)
-        self.layout.addWidget(self.button_back_to_after_login_window, 12, 0)
-
-
-
-        # # next step button
-        # self.next_button = generate_button('Next')
-        # self.next_button.clicked.connect(self.set_search_window_second_step)
-        # self.layout.addWidget(self.next_button, 5, 0)
-
-        # # destination button
-        # self.button_destination = generate_button('Select destination')
-        # self.button_destination.clicked.connect(self.set_map_dest_selector)
-        # self.layout.addWidget(self.button_destination, 2, 0)
-
-        # # radius
-        # self.label_radius = generate_label('Max distance from destination')
-        # self.lineEdit_radius = generate_input_text_filed("Please enter your max distance (in KM)")
-        # self.layout.addWidget(self.label_radius, 0, 0)
-        # self.layout.addWidget(self.lineEdit_radius, 0, 1)
-
-        # date time
-        # self.label_password = generate_label('Password')
-        # self.lineEdit_password = generate_input_text_filed("Please enter your password")
-        # self.lineEdit_password.setEchoMode(QLineEdit.Password)
-        # self.layout.addWidget(self.label_password, 1, 0)
-        # self.layout.addWidget(self.lineEdit_password, 1, 1)
+        self.layout.addWidget(self.button_back_to_after_login_window, 15, 0)
 
         self.setLayout(self.layout)
 
+    def choose_ride_purposes(self):
+
+        res = self.backend.get_ride_purposes(self.map.locations['end_location'].latLng[0],
+                                             self.map.locations['end_location'].latLng[1])
+        self.checkbox.open_checkbox(res)
+
     def add_new_ride(self):
+        # # dictionary of start location and destination key: 'start_location', 'end_location'
+        # print(f"selected start_location: {self.map.locations['start_location'].latLng[0]}, {self.map.locations['start_location'].latLng[1]}")
+        # print(f"selected end_location: {self.map.locations['end_location'].latLng[0]}, {self.map.locations['end_location'].latLng[1]}")
+        #
+        # print(f'selected_date {self.selected_date}') # tuple of 3 for day month year
+        # print(f'selected time: {self.text_field_hours.text()} : {self.text_field_minutes.text()}')
+        # print(f'selected cost: {self.text_field_cost.text()}')
+        # print(f'passengers amount {self.text_field_passengers.text()}')
+        # print(f'passenger ride purpose: {self.checkbox.chosen_purposes}')
+        hours = self.text_field_hours.text()
+        if len(hours) == 1:
+            hours = f'0{hours}'
 
-        # dictionary of start location and destination key: 'start_location', 'end_location'
-        print(f"selected start_location: {self.map.locations['start_location'].latLng[0]}, {self.map.locations['start_location'].latLng[1]}")
-        print(f"selected end_location: {self.map.locations['end_location'].latLng[0]}, {self.map.locations['end_location'].latLng[1]}") # dictionary of start location and destination key: 'start_location', 'end_location'
+        minutes = self.text_field_minutes.text()
+        if len(minutes) == 1:
+            minutes = f'0{minutes}'
 
-        print(f'selected_date {self.selected_date}') # tuple of 3 for day month year
-        print(f'selected time: {self.text_field_hours.text()} : {self.text_field_minutes.text()}')
-        print(f'selected cost: {self.text_field_cost.text()}')
+        uid = self.current_user_id
+        start_location_lat = self.map.locations['start_location'].latLng[0]
+        start_location_lng = self.map.locations['start_location'].latLng[1]
+        end_location_lat = self.map.locations['end_location'].latLng[0]
+        end_location_lng = self.map.locations['end_location'].latLng[1]
+        exit_date = f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}'
+        exit_time = f'{hours}-{minutes}'
+        num_of_riders_capacity = self.text_field_passengers.text()
+        cost = self.text_field_cost.text()
+        ride_kind = self.checkbox.chosen_purposes
+
+        self.backend.add_new_ride(user_id=uid, start_location_lat=start_location_lat,
+                                  start_location_lng=start_location_lng, end_location_lat=end_location_lat,
+                                  end_location_lng=end_location_lng,
+                                  exit_time=exit_time, exit_date=exit_date,
+                                  num_of_riders_capacity=num_of_riders_capacity, cost=cost, ride_kind=ride_kind)
+
+        self.map.locations = {}
+        success_message = "Succeeded creating a new ride!.\n"
+        pop_error_message_box('Signup Succeeded', success_message)
+        self.set_after_login_window()
+
+
+    def close_passengers_field_and_set_button(self):
+        if self.text_field_passengers.text() != '':
+            self.button_set_calender_window.show()  # 2
+            self.calendar.hide()  # 3
+            self.next_button.hide()  # 4
+            self.button_set_time_window.show()  # 5
+            self.text_field_hours.hide()  # 6.1
+            self.text_field_minutes.hide()  # 6.2
+            self.button_set_time.hide()  # 7
+            self.button_select_cost.show()  # 8
+            self.text_field_cost.hide()  # 9
+            self.button_set_cost.hide()  # 10
+            self.button_select_riders_amount.show()  # 11
+            self.text_field_passengers.hide()  # 12
+            self.button_set_riders_amount.hide()  # 13
+
+            self.button_select_riders_amount.setText('6. Select Passengers Amount  √')
+            self.button_add_new_ride.setDisabled(False)
+
+    def open_passengers_field_and_set_button(self):
+        self.button_set_calender_window.show()  # 2
+        self.calendar.hide()  # 3
+        self.next_button.hide()  # 4
+        self.button_set_time_window.show()  # 5
+        self.text_field_hours.hide()  # 6.1
+        self.text_field_minutes.hide()  # 6.2
+        self.button_set_time.hide()  # 7
+        self.button_select_cost.show()  # 8
+        self.text_field_cost.hide()  # 9
+        self.button_set_cost.hide()  # 10
+        self.button_select_riders_amount.hide()  # 11
+        self.text_field_passengers.show()  # 12
+        self.button_set_riders_amount.show()  # 13
 
     def close_cost_field_and_button(self):
         if self.text_field_cost.text() != '':
@@ -475,12 +555,15 @@ class MainWindow(QWidget):
             self.text_field_hours.hide()  # 6.1
             self.text_field_minutes.hide()  # 6.2
             self.button_set_time.hide()  # 7
-            self.button_select_cost.show()    # 8
-            self.text_field_cost.hide()   # 9
-            self.button_set_cost.hide()   # 10
+            self.button_select_cost.show()  # 8
+            self.text_field_cost.hide()  # 9
+            self.button_set_cost.hide()  # 10
+            self.button_select_riders_amount.show()  # 11
+            self.text_field_passengers.hide()  # 12
+            self.button_set_riders_amount.hide()  # 13
 
             self.button_select_cost.setText('5. Select Cost Per Person  √')
-            self.button_add_new_ride.setDisabled(False)
+            self.button_select_riders_amount.setDisabled(False)
 
     def show_cost_field_and_button(self):
         self.button_set_calender_window.show()  # 2
@@ -490,13 +573,14 @@ class MainWindow(QWidget):
         self.text_field_hours.hide()  # 6.1
         self.text_field_minutes.hide()  # 6.2
         self.button_set_time.hide()  # 7
-        self.button_select_cost.hide()    # 8
-        self.text_field_cost.show()   # 9
-        self.button_set_cost.show()   # 10
+        self.button_select_cost.hide()  # 8
+        self.text_field_cost.show()  # 9
+        self.button_set_cost.show()  # 10
+        self.button_select_riders_amount.show()  # 11
+        self.text_field_passengers.hide()  # 12
+        self.button_set_riders_amount.hide()  # 13
 
     def set_cost_field(self):
-
-        cost_validator = QIntValidator(0, 999, self)
 
         # create hours field
         text_field = QLineEdit()
@@ -504,10 +588,6 @@ class MainWindow(QWidget):
         font_size.setPointSize(12)
         text_field.setFont(font_size)
         text_field.setFixedWidth(380)
-        text_field.setValidator(cost_validator)
-        text_field.setMaxLength(9)
-        text_field.setPlaceholderText('Cost per person in Shekels ₪')
-        self.layout.addWidget(text_field, 6, 0)
         text_field.hide()
 
         return text_field
@@ -552,9 +632,12 @@ class MainWindow(QWidget):
         self.text_field_hours.show()  # 6.1
         self.text_field_minutes.show()  # 6.2
         self.button_set_time.show()  # 7
-        self.button_select_cost.show()    # 8
-        self.text_field_cost.hide()   # 9
-        self.button_set_cost.hide()   # 10
+        self.button_select_cost.show()  # 8
+        self.text_field_cost.hide()  # 9
+        self.button_set_cost.hide()  # 10
+        self.button_select_riders_amount.show()  # 11
+        self.text_field_passengers.hide()  # 12
+        self.button_set_riders_amount.hide()  # 13
 
     def close_time_fields_and_button(self):
         if self.text_field_hours.text() != '' and self.text_field_minutes.text() != '':
@@ -565,9 +648,12 @@ class MainWindow(QWidget):
             self.text_field_hours.hide()  # 6.1
             self.text_field_minutes.hide()  # 6.2
             self.button_set_time.hide()  # 7
-            self.button_select_cost.show()    # 8
-            self.text_field_cost.hide()   # 9
-            self.button_set_cost.hide()   # 10
+            self.button_select_cost.show()  # 8
+            self.text_field_cost.hide()  # 9
+            self.button_set_cost.hide()  # 10
+            self.button_select_riders_amount.show()  # 11
+            self.text_field_passengers.hide()  # 12
+            self.button_set_riders_amount.hide()  # 13
 
             self.button_set_time_window.setText('4. Select Exit Time  √')
             self.button_select_cost.setDisabled(False)
@@ -582,15 +668,18 @@ class MainWindow(QWidget):
 
     def show_calender(self):
         self.button_set_calender_window.hide()  # 2
-        self.calendar.show()    # 3
-        self.next_button.show() # 4
+        self.calendar.show()  # 3
+        self.next_button.show()  # 4
         self.button_set_time_window.show()  # 5
-        self.text_field_hours.hide()    # 6.1
+        self.text_field_hours.hide()  # 6.1
         self.text_field_minutes.hide()  # 6.2
-        self.button_set_time.hide()     # 7
-        self.button_select_cost.show()    # 8
-        self.text_field_cost.hide()   # 9
-        self.button_set_cost.hide()   # 10
+        self.button_set_time.hide()  # 7
+        self.button_select_cost.show()  # 8
+        self.text_field_cost.hide()  # 9
+        self.button_set_cost.hide()  # 10
+        self.button_select_riders_amount.show()  # 11
+        self.text_field_passengers.hide()  # 12
+        self.button_set_riders_amount.hide()  # 13
 
     def set_calender(self):
         # set calendar
@@ -601,9 +690,10 @@ class MainWindow(QWidget):
         # self.calendar.setGeometry(50, 50, 50, 50)
         my_calendar.setFixedWidth(380)
         my_calendar.setFixedHeight(200)
-        currentMonth = datetime.now().month
-        currentYear = datetime.now().year
-        currentDay = datetime.now().day
+        now = datetime.datetime.today()
+        currentMonth = now.month
+        currentYear = now.year
+        currentDay = now.day
         my_calendar.setMinimumDate(QDate(currentYear, currentMonth, currentDay))
         my_calendar.clicked.connect(self.save_date)
 
@@ -613,7 +703,6 @@ class MainWindow(QWidget):
 
     def close_calender(self):
         if self.selected_date != None:
-
             self.button_set_calender_window.show()  # 2
             self.calendar.hide()  # 3
             self.next_button.hide()  # 4
@@ -621,9 +710,12 @@ class MainWindow(QWidget):
             self.text_field_hours.hide()  # 6.1
             self.text_field_minutes.hide()  # 6.2
             self.button_set_time.hide()  # 7
-            self.button_select_cost.show()    # 8
-            self.text_field_cost.hide()   # 9
-            self.button_set_cost.hide()   # 10
+            self.button_select_cost.show()  # 8
+            self.text_field_cost.hide()  # 9
+            self.button_set_cost.hide()  # 10
+            self.button_select_riders_amount.show()  # 11
+            self.text_field_passengers.hide()  # 12
+            self.button_set_riders_amount.hide()  # 13
 
             self.button_set_calender_window.setText('3. Select Exit Date  √')
             self.button_set_time_window.setDisabled(False)
@@ -634,37 +726,8 @@ class MainWindow(QWidget):
         self.selected_date = self.calendar.selectedDate().getDate()
         print(f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}')
 
-    # def set_search_window_first_step(self):
-    #     self.clean_layout()
-    #
-    #     # location button
-    #     self.location_button = generate_button('Select start location')
-    #     self.location_button.clicked.connect(self.set_map_loc_selector)
-    #     self.layout.addWidget(self.location_button, 2, 1)
-    #
-    #     # # destination button
-    #     # self.button_destination = generate_button('Select destination')
-    #     # self.button_destination.clicked.connect(self.set_map_dest_selector)
-    #     # self.layout.addWidget(self.button_destination, 2, 0)
-    #
-    #     # # radius
-    #     # self.label_radius = generate_label('Max distance from destination')
-    #     # self.lineEdit_radius = generate_input_text_filed("Please enter your max distance (in KM)")
-    #     # self.layout.addWidget(self.label_radius, 0, 0)
-    #     # self.layout.addWidget(self.lineEdit_radius, 0, 1)
-    #
-    #     # date time
-    #     # self.label_password = generate_label('Password')
-    #     # self.lineEdit_password = generate_input_text_filed("Please enter your password")
-    #     # self.lineEdit_password.setEchoMode(QLineEdit.Password)
-    #     # self.layout.addWidget(self.label_password, 1, 0)
-    #     # self.layout.addWidget(self.lineEdit_password, 1, 1)
-    #
-    #     self.setLayout(self.layout)
-
 
 class MapWindow(QWidget):
-
     first_signal = pyqtSignal()
     second_signal = pyqtSignal()
 
@@ -679,8 +742,9 @@ class MapWindow(QWidget):
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.mapWidget)
         self.setWindowTitle('BGRide Map')
-        self.setLayout(self.layout)
+        self.setWindowIcon(QIcon("assets/icon.png"))
 
+        self.setLayout(self.layout)
         self.current_lat = None
         self.current_lang = None
 
@@ -730,6 +794,9 @@ class MapWindow(QWidget):
     def set_new_ride_on_click(self):
         self.map.clicked.connect(lambda x: self.set_lng_and_lat(x))
 
+    def unset_new_ride_on_click(self):
+        self.map.clicked.disconnect()
+
     def set_lng_and_lat(self, location_pressed):
 
         # get current x,y of user's mouse press
@@ -764,29 +831,6 @@ class MapWindow(QWidget):
             self.map.addLayer(self.locations['end_location'])
             self.second_signal.emit()
 
-
-
-
-
-
-
-        #
-        # if self.current_lang is not None:
-        #     # remove previous point
-        #     self.map.removeLayer(self.marker)
-        #
-        # self.current_lat = lat
-        # self.current_lang = lang
-        # L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)
-        # self.marker = L.marker([self.current_lat, self.current_lang], {'opacity': 0.5})
-        # self.marker.bindPopup('New Ride')
-        # self.map.addLayer(self.marker)
-        #
-        # if not self.is_chose_start_location:
-        #     self.locations['start_location'] = lat, lang
-
-
-
         button_reply = QMessageBox.question(self, 'Message', "Is it your desired location?",
                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if button_reply == QMessageBox.Yes:
@@ -805,18 +849,87 @@ class MapWindow(QWidget):
     def show_rides_on_map(self, places_list):
         self.places = places_list
         for place in self.places:
-            L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)
-            self.marker = L.marker([place[3], place[4]], {'opacity': 1})
-            string_info = f"Ride to {place[2]} On {place[5]} {place[6]} Cost is:{place[9]}-NIS"
+            # TODO aviv get address from the coordinates - (place[6], place[7)
+            aviv_address = "Aviv's Place"
+            L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)  # .on('onClick', self.onClick)
+            self.marker = L.marker([place[4], place[5]], {'opacity': 0.6})
+            string_info = f"Ride from {aviv_address} On {place[7]} {place[6]} <br>Cost is:{place[11]}₪ <br> " \
+                          f"{place[10]-place[9]} available seats left"
             self.marker.bindPopup(string_info)
             self.map.addLayer(self.marker)
-            self.show()
+        self.unset_new_ride_on_click()
+        self.show()
+
+
+class CheckBox(QWidget):
+    checkbox_signal = pyqtSignal()
+
+    def __init__(self, parent, *args):
+        super(CheckBox, self).__init__(*args)
+
+        # set background and icon to the checkbox window
+        self.set_background_image()
+        self.setWindowIcon(QIcon("assets/icon.png"))
+
+        # set signal to MainWindow
+        self.checkbox_signal.connect(parent.checkbox_signal)
+
+        # set lists
+        self.chosen_purposes = []
+        self.check_box_list = []
+        self.checkbox_layout = QVBoxLayout()
+
+    def open_checkbox(self, potential_ride_purpose_list: list):
+
+        for check_box in self.check_box_list:
+            self.checkbox_layout.removeWidget(check_box)
+
+        self.chosen_purposes = []
+        self.check_box_list = []
+
+        for potential_ride_purpose in potential_ride_purpose_list:
+            check_box = QCheckBox(potential_ride_purpose)
+            self.check_box_list.append(check_box)
+
+        label = QLabel(f'<font size="3"><u>Ride Purpose:</u></font>')
+        self.checkbox_layout.addWidget(label)
+
+        for check_box in self.check_box_list:
+            self.checkbox_layout.addWidget(check_box)
+
+        # create 'OK' button
+        self.button_ok = generate_button('Ok')
+        self.button_ok.setFixedWidth(100)
+        self.button_ok.clicked.connect(self.get_selected_purposes)
+
+        self.checkbox_layout.addWidget(self.button_ok)
+
+        self.setLayout(self.checkbox_layout)
+        self.show()
+
+    def get_selected_purposes(self):
+        self.hide()
+        for check_box in self.check_box_list:
+            if check_box.isChecked():
+                self.chosen_purposes.append(check_box.text())
+
+        # signal MainWindow
+        self.checkbox_signal.emit()
+
+    def set_background_image(self):
+        # set background
+        oImage = QImage("assets/background3.jpg")
+        palette = QPalette()
+        palette.setBrush(QPalette.Window, QBrush(oImage))
+        self.setPalette(palette)
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     window = MainWindow()
+
+    # window = CheckBox()
 
     window.show()
 

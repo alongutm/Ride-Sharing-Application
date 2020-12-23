@@ -71,7 +71,7 @@ class AzureDatabase(Database, ABC):
         self.close_connection()
         return True
 
-    def update_query(self, table, values_update_dict: dict, terms_dict: dict) -> bool:
+    def update_query(self, table: str, values_update_dict: dict, terms_dict: dict) -> bool:
 
         set_query = ''
         terms_query = ''
@@ -98,5 +98,29 @@ class AzureDatabase(Database, ABC):
         self.close_connection()
         return True
 
+    def update_query_increment(self, table: str, values_update_list: list, terms_dict: dict) -> bool:
 
+        set_query = ''
+        terms_query = ''
 
+        for value in values_update_list:
+            set_query = f"{set_query}{value}={value} + 1, "
+
+        set_query = set_query[:-2]
+
+        for value in terms_dict.keys():
+            terms_query = f"{terms_query}{value}='{terms_dict[value]}' AND "
+
+        terms_query = terms_query[:-4]
+        query = f"UPDATE {table} SET {set_query} WHERE {terms_query}"
+        self.open_connection()
+
+        try:
+            self.cursor.execute(query)
+            self.cursor.commit()
+        except:
+            self.close_connection()
+            return False
+
+        self.close_connection()
+        return True

@@ -20,5 +20,9 @@ class Database(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def update_query(self, table, values_update_dict: dict, terms_dict: dict) -> bool:
+    def update_query(self, table: str, values_update_dict: dict, terms_dict: dict) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def update_query_increment(self, table: str, values_update_list: list, terms_dict: dict) -> bool:
         pass
