@@ -106,6 +106,7 @@ class Backend:
 
         # filtering rides by 2 hours before and after the time the user entered
         results_after_date_check = filter_by_time(results, exit_date, exit_time)
+
         # filtering rides by the maximal accepted radius away from the user's destination
         results_after_radius_check = filter_by_radius(
             results_after_date_check,
@@ -113,7 +114,25 @@ class Backend:
             end_location_lng,
             radius
         )
-        return results_after_radius_check
+
+        results_list = [list(res) for res in results_after_radius_check]
+
+        # get rider name and phone number and name address
+        for res in results_list:
+
+            start_location_address = self.get_address_by_lan_lng(res[2], res[3])
+            end_location_address = self.get_address_by_lan_lng(res[4], res[5])
+
+            res.append(start_location_address)
+            res.append(end_location_address)
+
+            select_query_res = self.db.select_query('Users', {'uid': res[0]})
+
+            res.append(f'{select_query_res[0][2]} {select_query_res[0][3]}')
+            res.append(f'{select_query_res[0][6]}')
+
+
+        return results_list
 
     def join_ride(self, user_id_passenger: int, ride_id: int,
                   ride_kind: list) -> tuple:  # TODO: the ride kind comes in list or string??
