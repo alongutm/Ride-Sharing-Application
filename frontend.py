@@ -1030,16 +1030,20 @@ class MapWindow(QWidget):
 
     def show_rides_on_map(self, places_list):
         self.clean_selected_locations()
+
+
         for place in places_list:
             L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)  # .on('onClick', self.onClick)
             marker = L.marker([place[4], place[5]], {'opacity': 1})
             self.places.append(marker)
+            whatapp_link = f"googlechromes://wa.me/972{place[15]}?text=Hi%20,can%20I%20join%20your%20ride?%20"
             string_info = f"<b>Ride from: </b> {place[12]}<br>" \
                           f"<b>to: </b> {place[13]}<br>" \
                           f"<b>Cost: </b>{place[10]}₪<br>" \
                           f"<b>{place[9] - place[8]}</b> available seats left<br>" \
                           f"<b>Contact Name:</b> {place[14]}<br>" \
-                          f"<b>Phone Number:</b> {place[15]}"
+                          f"<b>Phone Number:</b> {place[15]}<br>" \
+                          f" <a href={whatapp_link}>Contact Me</a> "
             marker.bindPopup(string_info)
             self.map.addLayer(marker)
         self.unset_new_ride_on_click()
