@@ -37,6 +37,25 @@ def generate_input_text_filed(placeholder_text):
     return input_text_field
 
 
+def set_date_from_user(day: str, month: str, year: str):
+    if len(str(day)) == 1:
+        day = f'0{day}'
+    if len(str(month)) == 1:
+        month = f'0{month}'
+
+    return f'{day}-{month}-{year}'
+
+
+def set_time_from_user(hours, minutes):
+    if len(hours) == 1:
+        hours = f'0{hours}'
+
+    if len(minutes) == 1:
+        minutes = f'0{minutes}'
+
+    return f'{hours}-{minutes}'
+
+
 def pop_error_message_box(window_title, error_text_message):
     msg = QMessageBox()
     msg.setWindowIcon(QIcon("assets/icon.png"))
@@ -471,8 +490,8 @@ class MainWindow(QWidget):
         start_location_lng = self.map.locations['start_location'].latLng[1]
         end_location_lat = self.map.locations['end_location'].latLng[0]
         end_location_lng = self.map.locations['end_location'].latLng[1]
-        exit_date = f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}'
-        exit_time = self.set_time_from_user(self.text_field_hours.text(), self.text_field_minutes.text())
+        exit_date = set_date_from_user(day=self.selected_date[2], month=self.selected_date[1], year=self.selected_date[0])
+        exit_time = set_time_from_user(self.text_field_hours.text(), self.text_field_minutes.text())
         num_of_riders_capacity = self.text_field_passengers.text()
         cost = self.text_field_cost.text()
         ride_kind = self.checkbox.chosen_purposes
@@ -486,15 +505,6 @@ class MainWindow(QWidget):
         success_message = "Succeeded creating a new ride!.\n"
         pop_error_message_box('Signup Succeeded', success_message)
         self.set_after_login_window()
-
-    def set_time_from_user(self, hours, minutes):
-        if len(hours) == 1:
-            hours = f'0{hours}'
-
-        if len(minutes) == 1:
-            minutes = f'0{minutes}'
-
-        return f'{hours}-{minutes}'
 
     def close_passengers_field_and_set_button(self):
         if self.text_field_passengers.text() != '':
@@ -872,14 +882,17 @@ class MainWindow(QWidget):
         uid = self.current_user_id
         end_location_lat = self.map.search_location.latLng[0]
         end_location_lng = self.map.search_location.latLng[1]
-        exit_time = self.set_time_from_user(self.text_field_hours_search.text(), self.text_field_minutes_search.text())
-        exit_date = f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}'
+        exit_time = set_time_from_user(self.text_field_hours_search.text(), self.text_field_minutes_search.text())
+        exit_date = set_date_from_user(day=self.selected_date[2], month=self.selected_date[1], year=self.selected_date[0])
         radius = self.text_field_radius.text()
 
         res = self.backend.search_ride(user_id=uid, end_location_lat=end_location_lat,
                                        end_location_lng=end_location_lng, exit_time=exit_time, exit_date=exit_date,
                                        radius=radius)
         print(res)
+
+        self.map.show_rides_on_map(res)
+
 
     def save_date(self):
         self.selected_date = self.calendar.selectedDate().getDate()
@@ -1016,18 +1029,21 @@ class MapWindow(QWidget):
             print('No clicked.')
 
     def show_rides_on_map(self, places_list):
-        self.places = places_list
-        for place in self.places:
-            # TODO aviv get address from the coordinates - (place[6], place[7)
-            aviv_address = "Aviv's Place"
+        self.clean_selected_locations()
+        for place in places_list:
             L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)  # .on('onClick', self.onClick)
-            self.marker = L.marker([place[4], place[5]], {'opacity': 0.6})
-            string_info = f"Ride from {aviv_address} On {place[7]} {place[6]} <br>Cost is:{place[11]}₪ <br> " \
-                          f"{place[10] - place[9]} available seats left"
-            self.marker.bindPopup(string_info)
-            self.map.addLayer(self.marker)
+            marker = L.marker([place[4], place[5]], {'opacity': 1})
+            self.places.append(marker)
+            string_info = f"<b>Ride from: </b> {place[12]}<br>" \
+                          f"<b>to: </b> {place[13]}<br>" \
+                          f"<b>Cost: </b>{place[10]}₪<br>" \
+                          f"<b>{place[9] - place[8]}</b> available seats left<br>" \
+                          f"<b>Contact Name:</b> {place[14]}<br>" \
+                          f"<b>Phone Number:</b> {place[15]}"
+            marker.bindPopup(string_info)
+            self.map.addLayer(marker)
         self.unset_new_ride_on_click()
-        self.show()
+        self.show_map()
 
     def clean_selected_locations(self):
         for key in self.locations.keys():
@@ -1036,6 +1052,11 @@ class MapWindow(QWidget):
         if self.search_location is not None:
             self.map.removeLayer(self.search_location)
             self.search_location = None
+
+        for marker in self.places:
+            self.map.removeLayer(marker)
+
+        self.places = []
 
 
 class CheckBox(QWidget):
