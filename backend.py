@@ -98,19 +98,12 @@ class Backend:
 
         return True
 
-    def search_ride(self, user_id: str, end_location_lat: str, end_location_lng: str, exit_time: str, exit_date: str,
+    def search_ride(self, user_id: int, end_location_lat: float, end_location_lng: float, exit_time: str, exit_date: str,
                     radius: str) -> bool:
 
-        values_dict = {
-            'uid': user_id
-            # 'end_location_lat': end_location_lat,
-            # 'end_location_lng': end_location_lng,
-            # 'exitTime': exit_time,
-            # 'exitDate': exit_date,
-            # 'radius': radius,
-        }
         # select rides with the user's date
-        results = self.db.select_query('Rides', values_dict)
+        results = self.db.select_query('Rides', {'exitDate': exit_date})
+
         # filtering rides by 2 hours before and after the time the user entered
         results_after_date_check = filter_by_time(results, exit_date, exit_time)
         # filtering rides by the maximal accepted radius away from the user's destination
@@ -188,7 +181,7 @@ def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     c = 2 * asin(sqrt(a))
     r = 6371  # Radius of earth in kilometers. Use 3956 for miles
-    return c * r < max_dist
+    return c * r * 1000 < int(max_dist)
 
 
 def filter_by_time(results, date_user, hour_user):

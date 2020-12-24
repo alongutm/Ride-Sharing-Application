@@ -45,27 +45,11 @@ def pop_error_message_box(window_title, error_text_message):
     msg.exec_()
 
 
-def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
-    """
-       Calculate the great circle distance between two points
-       on the earth (specified in decimal degrees)
-       """
-    # convert decimal degrees to radians
-    lon1, lat1, lon2, lat2 = map(radians, [y_loc_main, x_loc_main, y_loc, x_loc])
-
-    # haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    c = 2 * asin(sqrt(a))
-    r = 6371  # Radius of earth in kilometers. Use 3956 for miles
-    return c * r < max_dist
-
-
 class MainWindow(QWidget):
     # map signals
     first_signal = pyqtSignal()
     second_signal = pyqtSignal()
+    third_signal = pyqtSignal()
 
     # checkbox signals
     checkbox_signal = pyqtSignal()
@@ -75,6 +59,8 @@ class MainWindow(QWidget):
 
         self.first_signal.connect(self.signal_enable_select_destination)
         self.second_signal.connect(self.signal_enable_select_date)
+        self.third_signal.connect(self.signal_enable_select_date_search)
+
         self.checkbox_signal.connect(self.add_new_ride)
 
         self.backend = Backend()
@@ -112,15 +98,18 @@ class MainWindow(QWidget):
         self.selected_loc_y = None
         self.selected_destination_x = None
         self.selected_destination_y = None
+
         # set map window
         self.map_locations = None
         self.map_destinations = None
+
         # set current user map select
         self.user_map = None
 
         # set user selected date
         self.selected_date = None
         self.calendar = None
+
         self.map = MapWindow(self)
         self.checkbox = CheckBox(self)
 
@@ -315,7 +304,6 @@ class MainWindow(QWidget):
         footer.move(0, 820)
 
     def check_credentials(self):
-        # self.set_after_login_window()  # TODO: delete later
         msg = QMessageBox()
         msg.setWindowIcon(QIcon("assets/icon.png"))
 
@@ -348,7 +336,10 @@ class MainWindow(QWidget):
 
     def set_after_login_window(self):
         self.clean_layout()
+        self.map.is_search = False
 
+        self.map.clean_selected_locations()
+        self.map.locations = {}
         # set buttons
         self.add_new_ride_button = generate_button("Add New Ride")
         self.add_new_ride_button.clicked.connect(self.set_add_ride_window)
@@ -356,7 +347,7 @@ class MainWindow(QWidget):
 
         # set buttons
         self.search_ride_button = generate_button("Search Ride")
-        # self.search_ride_button.clicked.connect(self.set_search_window_first_step) # TODO:
+        self.search_ride_button.clicked.connect(self.open_search_window)
         self.layout.addWidget(self.search_ride_button, 1, 0)
 
         self.back_to_login_button = generate_button("logout")
@@ -367,6 +358,8 @@ class MainWindow(QWidget):
     def set_add_ride_window(self):
         self.clean_layout()
         self.selected_date = None
+
+        self.map.clean_selected_locations()
         self.map.locations = {}
 
         # location button
@@ -404,7 +397,7 @@ class MainWindow(QWidget):
         self.layout.addWidget(self.button_set_time_window, 5, 0)
 
         # set hours and minutes fields fields row 6,1 and 6,1 in the layout
-        self.text_field_hours, self.text_field_minutes = self.set_hours_times_fields()
+        self.text_field_hours, self.text_field_minutes = self.set_hours_times_fields(row=6)
 
         # 'set time' button
         self.button_set_time = generate_button('Set Time')
@@ -418,7 +411,7 @@ class MainWindow(QWidget):
         self.button_select_cost.setDisabled(True)
         self.layout.addWidget(self.button_select_cost, 8, 0)
 
-        # set cost field #
+        # set cost field
         self.text_field_cost = self.set_cost_field()
         cost_validator = QIntValidator(0, 999, self)
         self.text_field_cost.setValidator(cost_validator)
@@ -472,22 +465,6 @@ class MainWindow(QWidget):
         self.checkbox.open_checkbox(res)
 
     def add_new_ride(self):
-        # # dictionary of start location and destination key: 'start_location', 'end_location'
-        # print(f"selected start_location: {self.map.locations['start_location'].latLng[0]}, {self.map.locations['start_location'].latLng[1]}")
-        # print(f"selected end_location: {self.map.locations['end_location'].latLng[0]}, {self.map.locations['end_location'].latLng[1]}")
-        #
-        # print(f'selected_date {self.selected_date}') # tuple of 3 for day month year
-        # print(f'selected time: {self.text_field_hours.text()} : {self.text_field_minutes.text()}')
-        # print(f'selected cost: {self.text_field_cost.text()}')
-        # print(f'passengers amount {self.text_field_passengers.text()}')
-        # print(f'passenger ride purpose: {self.checkbox.chosen_purposes}')
-        hours = self.text_field_hours.text()
-        if len(hours) == 1:
-            hours = f'0{hours}'
-
-        minutes = self.text_field_minutes.text()
-        if len(minutes) == 1:
-            minutes = f'0{minutes}'
 
         uid = self.current_user_id
         start_location_lat = self.map.locations['start_location'].latLng[0]
@@ -495,7 +472,7 @@ class MainWindow(QWidget):
         end_location_lat = self.map.locations['end_location'].latLng[0]
         end_location_lng = self.map.locations['end_location'].latLng[1]
         exit_date = f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}'
-        exit_time = f'{hours}-{minutes}'
+        exit_time = self.set_time_from_user(self.text_field_hours.text(), self.text_field_minutes.text())
         num_of_riders_capacity = self.text_field_passengers.text()
         cost = self.text_field_cost.text()
         ride_kind = self.checkbox.chosen_purposes
@@ -506,11 +483,18 @@ class MainWindow(QWidget):
                                   exit_time=exit_time, exit_date=exit_date,
                                   num_of_riders_capacity=num_of_riders_capacity, cost=cost, ride_kind=ride_kind)
 
-        self.map.locations = {}
         success_message = "Succeeded creating a new ride!.\n"
         pop_error_message_box('Signup Succeeded', success_message)
         self.set_after_login_window()
 
+    def set_time_from_user(self, hours, minutes):
+        if len(hours) == 1:
+            hours = f'0{hours}'
+
+        if len(minutes) == 1:
+            minutes = f'0{minutes}'
+
+        return f'{hours}-{minutes}'
 
     def close_passengers_field_and_set_button(self):
         if self.text_field_passengers.text() != '':
@@ -592,7 +576,7 @@ class MainWindow(QWidget):
 
         return text_field
 
-    def set_hours_times_fields(self) -> tuple:
+    def set_hours_times_fields(self, row) -> tuple:
 
         # set validators to the hour and minute fields
         hours_validator = QIntValidator(0, 24, self)
@@ -607,7 +591,7 @@ class MainWindow(QWidget):
         text_field_hours.setValidator(hours_validator)
         text_field_hours.setMaxLength(2)
         text_field_hours.setPlaceholderText('Hours 00 - 24')
-        self.layout.addWidget(text_field_hours, 6, 0)
+        self.layout.addWidget(text_field_hours, row, 0)
         text_field_hours.hide()
 
         # create minutes fields
@@ -619,7 +603,7 @@ class MainWindow(QWidget):
         text_field_minutes.setMaxLength(2)
         text_field_minutes.setFixedWidth(185)
         text_field_minutes.setPlaceholderText('Minutes 00 - 60')
-        self.layout.addWidget(text_field_minutes, 6, 1)
+        self.layout.addWidget(text_field_minutes, row, 1)
         text_field_minutes.hide()
 
         return text_field_hours, text_field_minutes
@@ -722,6 +706,181 @@ class MainWindow(QWidget):
 
             self.setLayout(self.layout)
 
+    def open_search_window(self):
+        self.clean_layout()
+        self.map.is_search = True
+
+        # destination button
+        self.button_destination_search = generate_button('1. Select Destination')
+        self.button_destination_search.clicked.connect(self.set_map_dest_selector)
+        self.layout.addWidget(self.button_destination_search, 0, 0)
+
+        # select date button
+        self.button_set_calender_window_search = generate_button('2. Select Date')
+        self.button_set_calender_window_search.clicked.connect(self.show_calender_search)
+        self.button_set_calender_window_search.setDisabled(True)
+        self.layout.addWidget(self.button_set_calender_window_search, 1, 0)
+
+        # set calender at row 3 at the layout
+        self.calendar = self.set_calender()
+        self.layout.addWidget(self.calendar, 2, 0)
+        self.calendar.hide()
+
+        # 'set date' button
+        self.button_set_date_search = generate_button('Choose Date')
+        self.button_set_date_search.clicked.connect(self.close_calender_search)
+        self.layout.addWidget(self.button_set_date_search, 3, 0)
+        self.button_set_date_search.hide()
+
+        self.button_select_exit_time = generate_button('3. Select Exit Time')
+        self.button_select_exit_time.clicked.connect(self.open_time_fields_search)
+        self.button_select_exit_time.setDisabled(True)
+        self.layout.addWidget(self.button_select_exit_time, 4, 0)
+
+        # set hours and minutes fields fields row 5,1 and 5,1 in the layout
+        self.text_field_hours_search, self.text_field_minutes_search = self.set_hours_times_fields(row=5)
+
+        # 'set time' button
+        self.button_set_time_search = generate_button('Set Time')
+        self.button_set_time_search.clicked.connect(self.close_time_fields_search)
+        self.layout.addWidget(self.button_set_time_search, 6, 0)
+        self.button_set_time_search.hide()
+
+        # select radius button
+        self.button_select_radius = generate_button('4. Set Maximal Radius From Destination')
+        self.button_select_radius.clicked.connect(self.open_radius_field_search)
+        self.button_select_radius.setDisabled(True)
+        self.layout.addWidget(self.button_select_radius, 7, 0)
+
+        # radius field
+        self.text_field_radius = self.set_cost_field()
+        distance_validator = QIntValidator(0, 1000, self)
+        self.text_field_radius.setValidator(distance_validator)
+        self.text_field_radius.setMaxLength(4)
+        self.text_field_radius.setPlaceholderText('0 - 1000 meters')
+        self.layout.addWidget(self.text_field_radius, 8, 0)
+        self.text_field_radius.hide()
+
+        # 'set radius' button
+        self.button_set_radius = generate_button('Set')
+        self.button_set_radius.clicked.connect(self.close_radius_field_search)
+        self.layout.addWidget(self.button_set_radius, 9, 0)
+        self.button_set_radius.hide()
+
+        # search button
+        self.button_search = generate_button('Search')
+        self.button_search.clicked.connect(self.search_rides)
+        self.button_search.setDisabled(True)
+        self.layout.addWidget(self.button_search, 10, 0)
+
+        # back to after login window
+        self.button_back_to_after_login_window = generate_button('back')
+        self.button_back_to_after_login_window.clicked.connect(self.set_after_login_window)
+        self.layout.addWidget(self.button_back_to_after_login_window, 11, 0)
+
+        self.setLayout(self.layout)
+
+    def signal_enable_select_date_search(self):
+        self.button_destination_search.setText('1. Select Destination  √')
+        self.button_set_calender_window_search.setDisabled(False)
+
+    def show_calender_search(self):
+        self.button_set_calender_window_search.hide()  # 1
+        self.calendar.show()  # 2
+        self.button_set_date_search.show()  # 3
+        self.button_select_exit_time.show()  # 4
+        self.text_field_hours_search.hide()  # 5.1
+        self.text_field_minutes_search.hide()  # 5.1
+        self.button_set_time_search.hide()  # 6
+        self.button_select_radius.show()  # 7
+        self.text_field_radius.hide()  # 8
+        self.button_set_radius.hide()  # 9
+
+    def close_calender_search(self):
+        if self.selected_date is not None:
+            self.button_set_calender_window_search.show()  # 1
+            self.calendar.hide()  # 2
+            self.button_set_date_search.hide()  # 3
+            self.button_select_exit_time.show()  # 4
+            self.text_field_hours_search.hide()  # 5.1
+            self.text_field_minutes_search.hide()  # 5.1
+            self.button_set_time_search.hide()  # 6
+            self.button_select_radius.show()  # 7
+            self.text_field_radius.hide()  # 8
+            self.button_set_radius.hide()  # 9
+
+            self.button_set_calender_window_search.setText('2. Select Date  √')
+            self.button_select_exit_time.setDisabled(False)
+
+    def open_time_fields_search(self):
+        self.button_set_calender_window_search.show()  # 1
+        self.calendar.hide()  # 2
+        self.button_set_date_search.hide()  # 3
+        self.button_select_exit_time.hide()  # 4
+        self.text_field_hours_search.show()  # 5.1
+        self.text_field_minutes_search.show()  # 5.1
+        self.button_set_time_search.show()  # 6
+        self.button_select_radius.show()  # 7
+        self.text_field_radius.hide()  # 8
+        self.button_set_radius.hide()  # 9
+
+    def close_time_fields_search(self):
+        if self.text_field_hours_search.text() != '' and self.text_field_minutes_search.text() != '':
+            self.button_set_calender_window_search.show()  # 1
+            self.calendar.hide()  # 2
+            self.button_set_date_search.hide()  # 3
+            self.button_select_exit_time.show()  # 4
+            self.text_field_hours_search.hide()  # 5.1
+            self.text_field_minutes_search.hide()  # 5.1
+            self.button_set_time_search.hide()  # 6
+            self.button_select_radius.show()  # 7
+            self.text_field_radius.hide()  # 8
+            self.button_set_radius.hide()  # 9
+
+            self.button_select_exit_time.setText('3. Select Exit Time  √')
+            self.button_select_radius.setDisabled(False)
+
+    def open_radius_field_search(self):
+        self.button_set_calender_window_search.show()  # 1
+        self.calendar.hide()  # 2
+        self.button_set_date_search.hide()  # 3
+        self.button_select_exit_time.show()  # 4
+        self.text_field_hours_search.hide()  # 5.1
+        self.text_field_minutes_search.hide()  # 5.1
+        self.button_set_time_search.hide()  # 6
+        self.button_select_radius.hide()  # 7
+        self.text_field_radius.show()  # 8
+        self.button_set_radius.show()  # 9
+
+    def close_radius_field_search(self):
+        if self.text_field_radius.text() != '':
+            self.button_set_calender_window_search.show()  # 1
+            self.calendar.hide()  # 2
+            self.button_set_date_search.hide()  # 3
+            self.button_select_exit_time.show()  # 4
+            self.text_field_hours_search.hide()  # 5.1
+            self.text_field_minutes_search.hide()  # 5.1
+            self.button_set_time_search.hide()  # 6
+            self.button_select_radius.show()  # 7
+            self.text_field_radius.hide()  # 8
+            self.button_set_radius.hide()  # 9
+
+            self.button_search.setDisabled(False)
+            self.button_select_radius.setText('4. Set Maximal Radius From Destination  √')
+
+    def search_rides(self):
+        uid = self.current_user_id
+        end_location_lat = self.map.search_location.latLng[0]
+        end_location_lng = self.map.search_location.latLng[1]
+        exit_time = self.set_time_from_user(self.text_field_hours_search.text(), self.text_field_minutes_search.text())
+        exit_date = f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}'
+        radius = self.text_field_radius.text()
+
+        res = self.backend.search_ride(user_id=uid, end_location_lat=end_location_lat,
+                                       end_location_lng=end_location_lng, exit_time=exit_time, exit_date=exit_date,
+                                       radius=radius)
+        print(res)
+
     def save_date(self):
         self.selected_date = self.calendar.selectedDate().getDate()
         print(f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}')
@@ -730,6 +889,7 @@ class MainWindow(QWidget):
 class MapWindow(QWidget):
     first_signal = pyqtSignal()
     second_signal = pyqtSignal()
+    third_signal = pyqtSignal()
 
     def __init__(self, parent, *args):
         # Setting up the widgets and layout
@@ -737,6 +897,7 @@ class MapWindow(QWidget):
 
         self.first_signal.connect(parent.first_signal.emit)
         self.second_signal.connect(parent.second_signal.emit)
+        self.third_signal.connect(parent.third_signal.emit)
 
         self.mapWidget = MapWidget()
         self.layout = QVBoxLayout()
@@ -747,6 +908,9 @@ class MapWindow(QWidget):
         self.setLayout(self.layout)
         self.current_lat = None
         self.current_lang = None
+
+        self.search_location = None
+        self.is_search = False
 
         self.locations = {}
 
@@ -797,7 +961,7 @@ class MapWindow(QWidget):
     def unset_new_ride_on_click(self):
         self.map.clicked.disconnect()
 
-    def set_lng_and_lat(self, location_pressed):
+    def set_lng_and_lat(self, location_pressed, ):
 
         # get current x,y of user's mouse press
         lat = location_pressed['latlng']['lat']
@@ -805,8 +969,18 @@ class MapWindow(QWidget):
 
         print(f"lat is {lat} and lang is {lang}")
 
+        if self.is_search is True:
+            if self.search_location is not None:
+                self.map.removeLayer(self.search_location)
+                self.search_location = None
+
+            L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)
+            self.search_location = L.marker([lat, lang], {'opacity': 0.7})
+            self.map.addLayer(self.search_location)
+            self.third_signal.emit()
+
         # a select start location has chosen
-        if not self.is_chose_start_location:
+        elif not self.is_chose_start_location:
             if 'start_location' in self.locations:
                 # a start location as already chosen and we need to delete the old one
                 self.map.removeLayer(self.locations['start_location'])
@@ -835,11 +1009,6 @@ class MapWindow(QWidget):
                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if button_reply == QMessageBox.Yes:
             print('Yes clicked.')
-            # if self.map.user_map == "location":
-            #     print("selected location lang is", lang)
-            # else:
-            #     self.parent.set_selected_destination(lat, lang)
-            #     print("selected destination lang is", lang)
             self.mapWidget.hide()
             self.hide()
 
@@ -854,11 +1023,19 @@ class MapWindow(QWidget):
             L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)  # .on('onClick', self.onClick)
             self.marker = L.marker([place[4], place[5]], {'opacity': 0.6})
             string_info = f"Ride from {aviv_address} On {place[7]} {place[6]} <br>Cost is:{place[11]}₪ <br> " \
-                          f"{place[10]-place[9]} available seats left"
+                          f"{place[10] - place[9]} available seats left"
             self.marker.bindPopup(string_info)
             self.map.addLayer(self.marker)
         self.unset_new_ride_on_click()
         self.show()
+
+    def clean_selected_locations(self):
+        for key in self.locations.keys():
+            self.map.removeLayer(self.locations[key])
+
+        if self.search_location is not None:
+            self.map.removeLayer(self.search_location)
+            self.search_location = None
 
 
 class CheckBox(QWidget):
