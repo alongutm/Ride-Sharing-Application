@@ -1018,11 +1018,9 @@ class MapWindow(QWidget):
     def show_rides_on_map(self, places_list):
         self.places = places_list
         for place in self.places:
-            # TODO aviv get address from the coordinates - (place[6], place[7)
-            aviv_address = "Aviv's Place"
             L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)  # .on('onClick', self.onClick)
             self.marker = L.marker([place[4], place[5]], {'opacity': 0.6})
-            string_info = f"Ride from {aviv_address} On {place[7]} {place[6]} <br>Cost is:{place[11]}₪ <br> " \
+            string_info = f"Ride from {place[13]} to {place[14]} <br>Cost is:{place[11]}₪ <br> " \
                           f"{place[10] - place[9]} available seats left"
             self.marker.bindPopup(string_info)
             self.map.addLayer(self.marker)
