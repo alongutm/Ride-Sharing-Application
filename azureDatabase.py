@@ -22,14 +22,17 @@ class AzureDatabase(Database, ABC):
         self.cursor.close()
         self.connection.close()
 
-    def select_query(self, table, terms_dict=None) -> list:
+    def select_query(self, table, terms_dict=None, is_string=False) -> list:
 
         query = f"SELECT * FROM {table}"
 
         if terms_dict is not None:
             terms_query = ' '
             for term in terms_dict.keys():
-                terms_query = terms_query + f"{term}='{terms_dict[term]}' AND "
+                if not is_string:
+                    terms_query = terms_query + f"{term}='{terms_dict[term]}' AND "
+                else:
+                    terms_query = terms_query + f"{term}={terms_dict[term]} AND "
             terms_query = terms_query[:-5]
             query = f"{query} WHERE {terms_query}"
 
@@ -42,6 +45,7 @@ class AzureDatabase(Database, ABC):
         self.close_connection()
 
         return results
+
 
     def insert_query(self, table: str, values_dict: dict) -> bool:
         fields_query = "("

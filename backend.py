@@ -2,6 +2,11 @@ from azureDatabase import AzureDatabase
 import googlemaps
 from math import radians, cos, sin, asin, sqrt
 import datetime
+import folium
+from folium.plugins import HeatMap
+import webbrowser
+import pandas as pd
+import os
 
 
 class Backend:
@@ -15,7 +20,8 @@ class Backend:
 
         self.rise_purposes_list = ['bakery', 'restaurant', 'pharmacy', 'bank', 'atm', 'park', 'pet_store',
                                    'police', 'doctor', 'supermarket', 'gym', 'hospital', 'university', 'synagogue',
-                                   'stadium', 'night_club', 'library', 'home_goods_store', 'movie_theater']
+                                   'stadium', 'night_club', 'library', 'home_goods_store', 'movie_theater', 'bar',
+                                   'train_station']
 
     def login(self, username, password) -> tuple:
 
@@ -119,23 +125,20 @@ class Backend:
 
         # get rider name and phone number and name address
         for res in results_list:
-
             start_location_address = self.get_address_by_lan_lng(res[2], res[3])
             end_location_address = self.get_address_by_lan_lng(res[4], res[5])
 
             res.append(start_location_address)
             res.append(end_location_address)
 
-            select_query_res = self.db.select_query('Users', {'uid': res[0]})
+            select_query_res = self.db.select_query('Users', {'uid': res[1]})
 
             res.append(f'{select_query_res[0][2]} {select_query_res[0][3]}')
             res.append(f'{select_query_res[0][6]}')
 
-
         return results_list
 
-    def join_ride(self, user_id_passenger: int, ride_id: int,
-                  ride_kind: list) -> tuple:  # TODO: the ride kind comes in list or string??
+    def join_ride(self, user_id_passenger: int, ride_id: int) -> tuple:
         terms_dict = {'rid': ride_id}
 
         rides_results = self.db.select_query('Rides', terms_dict)
@@ -151,8 +154,8 @@ class Backend:
             if current_passenger[1] == user_id_passenger:
                 return False, "You already assigned to this ride."
 
-        current_passengers_amount = ride[5]
-        passengers_capacity = ride[6]
+        current_passengers_amount = ride[8]
+        passengers_capacity = ride[9]
         if current_passengers_amount >= passengers_capacity:
             return False, "This ride is already full. Please try another ride."
 
@@ -166,12 +169,33 @@ class Backend:
         if not self.db.insert_query('Riders', terms_dict):
             return False, "Failed adding you to the ride. Please try again later."
 
+        preferences_ride = []
+        if ride[11] != '':
+            if ',' in ride[11]:
+                preferences_ride = list(ride[11].split(','))
+            else:
+                preferences_ride.append(ride[11])
+
+            if not self.db.update_query_increment('Preferences', preferences_ride, {'uid': user_id_passenger}):
+                return False, "Failed adding you to the ride. Please try again later."
+
         return True, "You have been successfully joined the ride!"
 
-    def get_ride_purposes(self, lat, lng) -> list:
+    def get_all_users(self):
+        results = self.db.select_query('Users, Preferences', terms_dict={'Users.uid': 'Preferences.uid'},
+                                       is_string=True)
+
+        columns_list = ['uid', 'username', 'firstName', 'lastName', 'password', 'email', 'phoneNumber', 'uid']
+        columns_list = columns_list + self.rise_purposes_list
+
+        results_df = pd.DataFrame([list(list1) for list1 in results], columns=columns_list)
+
+        return results_df
+
+    def get_ride_purposes_from_google_maps(self, lat, lng) -> list:
         potential_ride_purpose_list = []
         for potential_purpose in self.rise_purposes_list:
-            res = self.g_maps.places_nearby(location=f'{lat},{lng}', radius=200, open_now=False,
+            res = self.g_maps.places_nearby(location=f'{lat},{lng}', radius=300, open_now=False,
                                             type=potential_purpose)
             if res['status'] == 'OK':
                 potential_ride_purpose_list.append(potential_purpose)
@@ -184,6 +208,39 @@ class Backend:
             if any(char.isdigit() for char in current_res['formatted_address']) and any(
                     c.isalpha() for c in current_res['formatted_address']):
                 return current_res['formatted_address']
+
+    def all_rides_heat_maps_folium(self):
+        results = self.db.select_query('Rides, Riders', {'Riders.rid': 'Rides.rid'}, True)
+        locations = []
+        for res in results:
+            locations.append([float(res[4]), float(res[5])])
+
+        base_map = generate_base_map()
+        HeatMap(data=locations, radius=22).add_to(base_map)
+        # gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}
+        date = datetime.datetime.now().date()
+        filepath = f'assets/all_rides_heat_map/{date}.html'
+        base_map.save(filepath)
+        os.system(f"start chrome {filepath}")
+        # webbrowser.open('file://' + filepath)
+
+    def all_rides_by_user_heat_maps_folium(self, user_id: int):
+        terms_dict = {'Riders.rid': 'Rides.rid',
+                      'Riders.uid': user_id}
+        results = self.db.select_query('Riders, Rides', terms_dict, True)
+        locations = []
+        for res in results:
+            locations.append([float(res[6]), float(res[7])])
+
+        base_map = generate_base_map()
+        HeatMap(data=locations, radius=15).add_to(base_map)
+        # gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}
+        date = datetime.datetime.now().date()
+        filepath = f'assets/users_heat_maps/{user_id}_{date}.html'
+        base_map.save(filepath)
+        os.system(f"start chrome {filepath}")
+        # webbrowser.open('file://' + filepath)
+
 
 
 def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
@@ -231,3 +288,7 @@ def filter_by_radius(results_after_date_check, x_user, y_user, radius):
         if check_if_close_enough(x, y, x_user, y_user, radius):
             results.append(res)
     return results
+
+def generate_base_map(default_location=[31.26176079969529, 34.7982650268944], default_zoom_start=15):
+    base_map = folium.Map(location=default_location, control_scale=True, zoom_start=default_zoom_start)
+    return base_map

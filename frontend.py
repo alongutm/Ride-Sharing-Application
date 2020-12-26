@@ -1,11 +1,12 @@
 import sys
 from backend import Backend
+from operator import itemgetter
+import pandas as pd
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, \
-    QVBoxLayout, QDateTimeEdit, QCalendarWidget, QCheckBox
+    QVBoxLayout, QCalendarWidget, QCheckBox, QComboBox
 from PyQt5.QtGui import QImage, QPalette, QBrush, QIcon, QPixmap, QIntValidator, QRegExpValidator
-from PyQt5.QtCore import Qt, QRegExp, QDateTime, QDate, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import Qt, QRegExp, QDate, pyqtSignal
 from pyqtlet import L, MapWidget
-from math import radians, cos, sin, asin, sqrt
 import datetime
 
 
@@ -72,6 +73,7 @@ class MainWindow(QWidget):
 
     # checkbox signals
     checkbox_signal = pyqtSignal()
+    select_ride_signal = pyqtSignal()
 
     def __init__(self, *args):
         super(MainWindow, self).__init__(*args)
@@ -81,6 +83,7 @@ class MainWindow(QWidget):
         self.third_signal.connect(self.signal_enable_select_date_search)
 
         self.checkbox_signal.connect(self.add_new_ride)
+        self.select_ride_signal.connect(self.join_ride)
 
         self.backend = Backend()
 
@@ -134,6 +137,14 @@ class MainWindow(QWidget):
 
         # id of logged in user
         self.current_user_id = 0
+        self.is_user_admin = False
+
+        self.is_unset_click_map = False
+
+        self.users_statistics_df = None
+        self.full_username_dict = {}
+
+        self.text_field_preferences = None
 
     def signal_enable_select_destination(self):
         self.location_button.setText('1. Select Start Location  √')
@@ -341,6 +352,7 @@ class MainWindow(QWidget):
                 msg.setText('Succeeded login in.')
                 msg.exec_()
                 self.current_user_id = res_log[2]
+                self.is_user_admin = res_log[1]
                 self.set_after_login_window()
 
         # login_res = self.backend.login(self.lineEdit_username, self.lineEdit_password)
@@ -359,6 +371,7 @@ class MainWindow(QWidget):
 
         self.map.clean_selected_locations()
         self.map.locations = {}
+
         # set buttons
         self.add_new_ride_button = generate_button("Add New Ride")
         self.add_new_ride_button.clicked.connect(self.set_add_ride_window)
@@ -369,10 +382,101 @@ class MainWindow(QWidget):
         self.search_ride_button.clicked.connect(self.open_search_window)
         self.layout.addWidget(self.search_ride_button, 1, 0)
 
+        if self.is_user_admin:
+            self.button_statistics = generate_button("Users Statistics")
+            self.button_statistics.clicked.connect(self.open_statistics_window)
+            self.button_statistics.setStyleSheet(
+                "QPushButton { background-color: rgba(11,94,46,40%); border-style: outset; border-width: 5px; border-radius: 10px; border-color: beige; opacity: 1; }"
+                "QPushButton:hover { background-color: rgba(11,94,46,80%)}")
+            self.layout.addWidget(self.button_statistics, 2, 0)
+
         self.back_to_login_button = generate_button("logout")
         self.back_to_login_button.clicked.connect(self.set_login_window)
-        self.layout.addWidget(self.back_to_login_button, 2, 0)
+        self.layout.addWidget(self.back_to_login_button, 3, 0)
         self.setLayout(self.layout)
+
+    def open_statistics_window(self):
+        self.clean_layout()
+
+        self.users_statistics_df = self.backend.get_all_users()
+        self.users_statistics_df = self.users_statistics_df.T.drop_duplicates().T
+
+        # heat map button
+        self.button_show_all_heat_map = generate_button("Show Everyone Heat Map")
+        self.button_show_all_heat_map.clicked.connect(self.show_all_users_heat_map)
+        self.layout.addWidget(self.button_show_all_heat_map, 0, 0)
+
+        # creating a combo box widget
+        self.users_drop_list = QComboBox(self)
+        self.users_drop_list.setFixedWidth(380)
+        self.users_drop_list.setFixedHeight(30)
+        self.users_drop_list.setEditable(True)
+
+        self.full_username_dict = {}
+        for index, row in self.users_statistics_df.iterrows():
+            self.full_username_dict[f"{row['firstName']} {row['lastName']}"] = row['uid']
+
+        del self.full_username_dict['admin admin']
+        del self.full_username_dict['Aviv Amsellem']
+        del self.full_username_dict['Alon Gutman']
+
+        self.users_drop_list.addItems(self.full_username_dict.keys())
+        line_edit = self.users_drop_list.lineEdit()
+        line_edit.setAlignment(Qt.AlignCenter)
+        line_edit.setReadOnly(True)
+        font_size = line_edit.font()
+        font_size.setPointSize(14)
+        line_edit.setFont(font_size)
+        self.users_drop_list.setFont(font_size)
+
+        self.users_drop_list.setStyleSheet(
+            "QComboBox { background-color: rgba(0,0,255,25%); border-style: outset; border-width: 4px; border-radius: "
+            "10px; border-color: beige; opacity: 0.5; }")
+        self.layout.addWidget(self.users_drop_list, 1, 0)
+
+        # heat map button
+        self.button_show_heat_map = generate_button("Show User Heat Map")
+        self.button_show_heat_map.clicked.connect(self.show_user_heat_map)
+        self.layout.addWidget(self.button_show_heat_map, 2, 0)
+
+        # Show user preferences
+        self.button_show_user_heat_map = generate_button("Show User Preferences")
+        self.button_show_user_heat_map.clicked.connect(self.get_user_preferences)
+        self.layout.addWidget(self.button_show_user_heat_map, 3, 0)
+
+        # back to after login window
+        self.button_back_to_after_login_window = generate_button('back')
+        self.button_back_to_after_login_window.clicked.connect(self.set_after_login_window)
+        self.layout.addWidget(self.button_back_to_after_login_window, 5, 0)
+
+    def show_all_users_heat_map(self):
+        self.backend.all_rides_heat_maps_folium()
+
+    def show_user_heat_map(self):
+        self.backend.all_rides_by_user_heat_maps_folium(self.full_username_dict[self.users_drop_list.currentText()])
+
+    def get_user_preferences(self):
+
+        if self.text_field_preferences is not None:
+            self.text_field_preferences.setText('')
+
+        user_id = self.full_username_dict[self.users_drop_list.currentText()]
+
+        row = self.users_statistics_df.loc[self.users_statistics_df['uid'] == user_id]
+
+        user_preferences = row[row.columns[-21:]].to_dict()
+
+        user_preferences_dict = {}
+        for key in user_preferences.keys():
+            user_preferences_dict[key] = user_preferences[key][user_id - 1]
+
+        top_preferences_dict = dict(sorted(user_preferences_dict.items(), key=itemgetter(1), reverse=True)[:3])
+        top_preferences_list = list(top_preferences_dict)
+        self.text_field_preferences = QLabel(f"<font size=12><b>User's most visited amenities:</b><br>" \
+                                             f"1. {top_preferences_list[0]}<br>" \
+                                             f"2. {top_preferences_list[1]}<br>"
+                                             f"3. {top_preferences_list[2]}</font>")
+        self.layout.addWidget(self.text_field_preferences, 4, 0)
 
     def set_add_ride_window(self):
         self.clean_layout()
@@ -382,6 +486,8 @@ class MainWindow(QWidget):
         self.map.locations = {}
 
         # location button
+        self.map.set_new_ride_on_click()
+
         self.location_button = generate_button('1. Select Start Location')
         self.location_button.clicked.connect(self.set_map_loc_selector)
         self.layout.addWidget(self.location_button, 0, 0)
@@ -479,9 +585,12 @@ class MainWindow(QWidget):
 
     def choose_ride_purposes(self):
 
-        res = self.backend.get_ride_purposes(self.map.locations['end_location'].latLng[0],
-                                             self.map.locations['end_location'].latLng[1])
-        self.checkbox.open_checkbox(res)
+        res = self.backend.get_ride_purposes_from_google_maps(self.map.locations['end_location'].latLng[0],
+                                                              self.map.locations['end_location'].latLng[1])
+        destination_address = self.backend.get_address_by_lan_lng(self.map.locations['end_location'].latLng[0],
+                                                                  self.map.locations['end_location'].latLng[1])
+
+        self.checkbox.open_checkbox_purposes(res, destination_address)
 
     def add_new_ride(self):
 
@@ -490,7 +599,8 @@ class MainWindow(QWidget):
         start_location_lng = self.map.locations['start_location'].latLng[1]
         end_location_lat = self.map.locations['end_location'].latLng[0]
         end_location_lng = self.map.locations['end_location'].latLng[1]
-        exit_date = set_date_from_user(day=self.selected_date[2], month=self.selected_date[1], year=self.selected_date[0])
+        exit_date = set_date_from_user(day=self.selected_date[2], month=self.selected_date[1],
+                                       year=self.selected_date[0])
         exit_time = set_time_from_user(self.text_field_hours.text(), self.text_field_minutes.text())
         num_of_riders_capacity = self.text_field_passengers.text()
         cost = self.text_field_cost.text()
@@ -589,7 +699,7 @@ class MainWindow(QWidget):
     def set_hours_times_fields(self, row) -> tuple:
 
         # set validators to the hour and minute fields
-        hours_validator = QIntValidator(0, 24, self)
+        hours_validator = QIntValidator(0, 23, self)
         minutes_validator = QIntValidator(0, 60, self)
 
         # create hours field
@@ -600,7 +710,7 @@ class MainWindow(QWidget):
         text_field_hours.setFixedWidth(185)
         text_field_hours.setValidator(hours_validator)
         text_field_hours.setMaxLength(2)
-        text_field_hours.setPlaceholderText('Hours 00 - 24')
+        text_field_hours.setPlaceholderText('Hours 00 - 23')
         self.layout.addWidget(text_field_hours, row, 0)
         text_field_hours.hide()
 
@@ -723,6 +833,10 @@ class MainWindow(QWidget):
         # destination button
         self.button_destination_search = generate_button('1. Select Destination')
         self.button_destination_search.clicked.connect(self.set_map_dest_selector)
+
+        self.map.set_new_ride_on_click()
+
+        self.map.clean_selected_locations()
         self.layout.addWidget(self.button_destination_search, 0, 0)
 
         # select date button
@@ -883,7 +997,8 @@ class MainWindow(QWidget):
         end_location_lat = self.map.search_location.latLng[0]
         end_location_lng = self.map.search_location.latLng[1]
         exit_time = set_time_from_user(self.text_field_hours_search.text(), self.text_field_minutes_search.text())
-        exit_date = set_date_from_user(day=self.selected_date[2], month=self.selected_date[1], year=self.selected_date[0])
+        exit_date = set_date_from_user(day=self.selected_date[2], month=self.selected_date[1],
+                                       year=self.selected_date[0])
         radius = self.text_field_radius.text()
 
         res = self.backend.search_ride(user_id=uid, end_location_lat=end_location_lat,
@@ -891,8 +1006,19 @@ class MainWindow(QWidget):
                                        radius=radius)
         print(res)
 
+        self.set_after_login_window()
         self.map.show_rides_on_map(res)
+        self.checkbox.open_checkbox_join_ride()
 
+    def join_ride(self):
+        self.map.mapWidget.hide()
+        self.map.hide()
+
+        is_succeeded, error = self.backend.join_ride(self.current_user_id, self.checkbox.text_field.text())
+        if is_succeeded:
+            pop_error_message_box('Join Ride', 'You successfully joined the ride!')
+        else:
+            pop_error_message_box('Join Ride', error)
 
     def save_date(self):
         self.selected_date = self.calendar.selectedDate().getDate()
@@ -935,11 +1061,11 @@ class MapWindow(QWidget):
         self.map = L.map(self.mapWidget)
         self.map.setView([31.256974278389507, 34.79832234475968], 14)
 
+        self.is_unset_click_map = True
         self.set_new_ride_on_click()
 
         L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)
         self.marker = L.marker([75.262070, 34.798280], {'opacity': 0})
-        self.marker.bindPopup('Sharmuta in this place')
         self.map.addLayer(self.marker)
 
     def show_map(self):
@@ -969,12 +1095,16 @@ class MapWindow(QWidget):
         return True
 
     def set_new_ride_on_click(self):
-        self.map.clicked.connect(lambda x: self.set_lng_and_lat(x))
+        if self.is_unset_click_map:
+            self.map.clicked.connect(lambda x: self.set_lng_and_lat(x))
+            self.is_unset_click_map = False
 
     def unset_new_ride_on_click(self):
-        self.map.clicked.disconnect()
+        if not self.is_unset_click_map:
+            self.map.clicked.disconnect()
+            self.is_unset_click_map = True
 
-    def set_lng_and_lat(self, location_pressed, ):
+    def set_lng_and_lat(self, location_pressed):
 
         # get current x,y of user's mouse press
         lat = location_pressed['latlng']['lat']
@@ -1016,36 +1146,51 @@ class MapWindow(QWidget):
             # get the new location
             self.locations['end_location'] = L.marker([lat, lang], {'opacity': 0.5})
             self.map.addLayer(self.locations['end_location'])
+
             self.second_signal.emit()
 
         button_reply = QMessageBox.question(self, 'Message', "Is it your desired location?",
                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
         if button_reply == QMessageBox.Yes:
             print('Yes clicked.')
             self.mapWidget.hide()
             self.hide()
 
-        else:
-            print('No clicked.')
-
     def show_rides_on_map(self, places_list):
         self.clean_selected_locations()
-
 
         for place in places_list:
             L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)  # .on('onClick', self.onClick)
             marker = L.marker([place[4], place[5]], {'opacity': 1})
             self.places.append(marker)
-            whatapp_link = f"googlechromes://wa.me/972{place[15]}?text=Hi%20,can%20I%20join%20your%20ride?%20"
-            string_info = f"<b>Ride from: </b> {place[12]}<br>" \
+
+            ride_purpose = '<b>Ride Purpose:</b> '
+
+            if place[11] == '':
+                pass
+            elif ',' in place[11]:
+                for purpose in place[11].split(','):
+                    ride_purpose = f'{ride_purpose} {purpose},'
+                ride_purpose = f'{ride_purpose[:-1]}<br>'
+            else:
+                ride_purpose = f'{ride_purpose} {place[11]}<br>'
+            time = list(place[6])
+            time[2] = ':'
+
+            string_info = f"<b>Ride id: {place[0]}</b><br>" \
+                          f"<b>Ride from: </b> {place[12]}<br>" \
                           f"<b>to: </b> {place[13]}<br>" \
+                          f"<b>Exit Date: </b>{place[7]}<br>" \
+                          f"<b>Exit Time: </b> {''.join(time)}<br>" \
                           f"<b>Cost: </b>{place[10]}₪<br>" \
                           f"<b>{place[9] - place[8]}</b> available seats left<br>" \
+                          f"{ride_purpose}" \
                           f"<b>Contact Name:</b> {place[14]}<br>" \
-                          f"<b>Phone Number:</b> {place[15]}<br>" \
-                          f" <a href={whatapp_link}>Contact Me</a> "
+                          f"<b>Phone Number:</b> {place[15]}<br>"
             marker.bindPopup(string_info)
             self.map.addLayer(marker)
+
         self.unset_new_ride_on_click()
         self.show_map()
 
@@ -1065,6 +1210,7 @@ class MapWindow(QWidget):
 
 class CheckBox(QWidget):
     checkbox_signal = pyqtSignal()
+    select_ride_signal = pyqtSignal()
 
     def __init__(self, parent, *args):
         super(CheckBox, self).__init__(*args)
@@ -1072,29 +1218,39 @@ class CheckBox(QWidget):
         # set background and icon to the checkbox window
         self.set_background_image()
         self.setWindowIcon(QIcon("assets/icon.png"))
+        self.setWindowTitle('Ride Purposes')
 
         # set signal to MainWindow
         self.checkbox_signal.connect(parent.checkbox_signal)
+        self.select_ride_signal.connect(parent.select_ride_signal)
 
         # set lists
         self.chosen_purposes = []
         self.check_box_list = []
         self.checkbox_layout = QVBoxLayout()
 
-    def open_checkbox(self, potential_ride_purpose_list: list):
+        self.button_ok = None
+        self.label = None
+        self.text_field = None
 
-        for check_box in self.check_box_list:
-            self.checkbox_layout.removeWidget(check_box)
+    def open_checkbox_purposes(self, potential_ride_purpose_list: list, destination_address: str):
+        self.setWindowTitle('Ride Purposes')
+
+        self.clearLayout(self.checkbox_layout)
 
         self.chosen_purposes = []
         self.check_box_list = []
 
         for potential_ride_purpose in potential_ride_purpose_list:
-            check_box = QCheckBox(potential_ride_purpose)
+            check_box = QCheckBox(f' {potential_ride_purpose}')
+            check_box.setStyleSheet('QCheckBox{'
+                                    'spacing:px;'
+                                    'font-size:15px;}')
             self.check_box_list.append(check_box)
 
-        label = QLabel(f'<font size="3"><u>Ride Purpose:</u></font>')
-        self.checkbox_layout.addWidget(label)
+        self.label = QLabel(f'<font size="4">What is your Ride Purpose:<br>'
+                            f'in {destination_address} ?</font>')
+        self.checkbox_layout.addWidget(self.label)
 
         for check_box in self.check_box_list:
             self.checkbox_layout.addWidget(check_box)
@@ -1109,14 +1265,70 @@ class CheckBox(QWidget):
         self.setLayout(self.checkbox_layout)
         self.show()
 
-    def get_selected_purposes(self):
-        self.hide()
-        for check_box in self.check_box_list:
-            if check_box.isChecked():
-                self.chosen_purposes.append(check_box.text())
+    def open_checkbox_join_ride(self):
+        self.clearLayout(self.checkbox_layout)
+        self.setWindowTitle('Join Ride')
 
-        # signal MainWindow
-        self.checkbox_signal.emit()
+        self.label = QLabel(f'<font size="4">Please Insert the <b>ride id</b> to join:<br>'
+                            f'the ride you interested in</font>')
+
+        self.text_field = QLineEdit()
+        font_size = self.text_field.font()
+        font_size.setPointSize(10)
+        self.text_field.setFont(font_size)
+        self.text_field.setFixedWidth(185)
+        self.text_field.setMaxLength(4)
+        self.text_field.setPlaceholderText('ride id')
+        only_int = QIntValidator()
+        self.text_field.setValidator(only_int)
+
+        self.button_ok = generate_button('Ok')
+        self.button_ok.setFixedWidth(100)
+        self.button_ok.clicked.connect(self.get_selected_ride)
+
+        self.checkbox_layout.addWidget(self.label)
+        self.checkbox_layout.addWidget(self.text_field)
+        self.checkbox_layout.addWidget(self.button_ok)
+
+        self.setLayout(self.checkbox_layout)
+        self.show()
+
+    def get_selected_ride(self):
+        if self.text_field.text() != '':
+            # close window
+            self.hide()
+            # signal MainWindow
+            self.select_ride_signal.emit()
+
+    def clearLayout(self, layout):
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                else:
+                    self.clearLayout(item.layout())
+
+    def get_selected_purposes(self):
+        if len(self.check_box_list) == 0:
+            # close checkbox
+            self.hide()
+
+            # signal MainWindow
+            self.checkbox_signal.emit()
+
+        else:
+            for check_box in self.check_box_list:
+                if check_box.isChecked():
+                    self.chosen_purposes.append(check_box.text())
+
+            if len(self.chosen_purposes) != 0:
+                # close checkbox
+                self.hide()
+
+                # signal MainWindow
+                self.checkbox_signal.emit()
 
     def set_background_image(self):
         # set background
