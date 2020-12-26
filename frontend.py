@@ -319,7 +319,7 @@ class MainWindow(QWidget):
     def set_logo(self):
         label_image = QLabel(self)
         label_image.setAlignment(Qt.AlignCenter)
-        pixmap = QPixmap("assets/logo2.png")
+        pixmap = QPixmap("assets/logo.png")
         label_image.setPixmap(pixmap)
         label_image.setAlignment(Qt.AlignCenter)
         label_image.resize(231, 161)
@@ -359,7 +359,7 @@ class MainWindow(QWidget):
 
     def set_background_image(self):
         # set background
-        oImage = QImage("assets/background3.jpg")
+        oImage = QImage("assets/background.jpg")
         # sImage = oImage.scaled(QSize(900, 800))
         palette = QPalette()
         palette.setBrush(QPalette.Window, QBrush(oImage))
@@ -1332,7 +1332,7 @@ class CheckBox(QWidget):
 
     def set_background_image(self):
         # set background
-        oImage = QImage("assets/background3.jpg")
+        oImage = QImage("assets/background.jpg")
         palette = QPalette()
         palette.setBrush(QPalette.Window, QBrush(oImage))
         self.setPalette(palette)
