@@ -46,7 +46,6 @@ class AzureDatabase(Database, ABC):
 
         return results
 
-
     def insert_query(self, table: str, values_dict: dict) -> bool:
         fields_query = "("
         values_query = "("

@@ -219,6 +219,10 @@ class Backend:
         HeatMap(data=locations, radius=22).add_to(base_map)
         # gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}
         date = datetime.datetime.now().date()
+
+        if not os.path.isdir('./assets/all_rides_heat_map'):
+            os.mkdir('./assets/all_rides_heat_map')
+
         filepath = f'assets/all_rides_heat_map/{date}.html'
         base_map.save(filepath)
         os.system(f"start chrome {filepath}")
@@ -236,6 +240,10 @@ class Backend:
         HeatMap(data=locations, radius=15).add_to(base_map)
         # gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}
         date = datetime.datetime.now().date()
+
+        if not os.path.isdir('./assets/users_heat_maps'):
+            os.mkdir('./assets/users_heat_maps')
+
         filepath = f'assets/users_heat_maps/{user_id}_{date}.html'
         base_map.save(filepath)
         os.system(f"start chrome {filepath}")
