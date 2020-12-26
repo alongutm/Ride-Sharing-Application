@@ -2,6 +2,10 @@ from azureDatabase import AzureDatabase
 import googlemaps
 from math import radians, cos, sin, asin, sqrt
 import datetime
+import gmaps
+import folium
+from folium.plugins import HeatMap
+import webbrowser
 
 
 class Backend:
@@ -98,7 +102,8 @@ class Backend:
 
         return True
 
-    def search_ride(self, user_id: int, end_location_lat: float, end_location_lng: float, exit_time: str, exit_date: str,
+    def search_ride(self, user_id: int, end_location_lat: float, end_location_lng: float, exit_time: str,
+                    exit_date: str,
                     radius: str) -> bool:
 
         # select rides with the user's date
@@ -119,7 +124,6 @@ class Backend:
 
         # get rider name and phone number and name address
         for res in results_list:
-
             start_location_address = self.get_address_by_lan_lng(res[2], res[3])
             end_location_address = self.get_address_by_lan_lng(res[4], res[5])
 
@@ -130,7 +134,6 @@ class Backend:
 
             res.append(f'{select_query_res[0][2]} {select_query_res[0][3]}')
             res.append(f'{select_query_res[0][6]}')
-
 
         return results_list
 
@@ -185,6 +188,33 @@ class Backend:
                     c.isalpha() for c in current_res['formatted_address']):
                 return current_res['formatted_address']
 
+    def all_rides_heat_maps_folium(self):
+        results = self.db.select_query('Rides')
+        locations = []
+        for index in results:
+            locations.append([float(index[4]), float(index[5])])
+
+        base_map = generate_base_map()
+        HeatMap(data=locations, radius=22).add_to(base_map)
+        # gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}
+        filepath = f'C:/Users/Alon/mapAllRides_{datetime.datetime.now().date()}.html'
+        base_map.save(filepath)
+        webbrowser.open('file://' + filepath)
+
+    def all_rides_by_user_heat_maps_folium(self, terms_dict):
+        results = self.db.select_query('Rides', terms_dict)
+        locations = []
+        for index in results:
+            locations.append([float(index[4]), float(index[5])])
+
+        base_map = generate_base_map()
+        HeatMap(data=locations, radius=15).add_to(base_map)
+        # gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}
+        id = terms_dict.get('id')
+        filepath = f'C:/Users/Alon/user_Rides-user_ID_{id}{datetime.datetime.now().date()}.html'
+        base_map.save(filepath)
+        webbrowser.open('file://' + filepath)
+
 
 def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
     """
@@ -231,3 +261,8 @@ def filter_by_radius(results_after_date_check, x_user, y_user, radius):
         if check_if_close_enough(x, y, x_user, y_user, radius):
             results.append(res)
     return results
+
+
+def generate_base_map(default_location=[31.26176079969529, 34.7982650268944], default_zoom_start=15):
+    base_map = folium.Map(location=default_location, control_scale=True, zoom_start=default_zoom_start)
+    return base_map
