@@ -957,8 +957,6 @@ class MainWindow(QWidget):
         my_calendar.setMinimumDate(QDate(currentYear, currentMonth, currentDay))
         my_calendar.clicked.connect(self.save_date)
 
-        print(f"current month is {currentMonth} and curr year is {currentYear} and curr ay is {currentDay} ")
-
         return my_calendar
 
     def close_calender(self):
@@ -1192,7 +1190,6 @@ class MainWindow(QWidget):
         res = self.backend.search_ride(user_id=uid, end_location_lat=end_location_lat,
                                        end_location_lng=end_location_lng, exit_time=exit_time, exit_date=exit_date,
                                        radius=radius)
-        print(res)
         if len(res) > 0:
             self.set_after_login_window()
             self.map.show_rides_on_map(res)
@@ -1220,7 +1217,6 @@ class MainWindow(QWidget):
         the method saves the chosen date by the user.
         """
         self.selected_date = self.calendar.selectedDate().getDate()
-        print(f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}')
 
 
 class MapWindow(QWidget):
@@ -1338,8 +1334,6 @@ class MapWindow(QWidget):
         lat = location_pressed['latlng']['lat']
         lang = location_pressed['latlng']['lng']
 
-        print(f"lat is {lat} and lang is {lang}")
-
         if self.is_search is True:
             if self.search_location is not None:
                 self.map.removeLayer(self.search_location)
@@ -1381,7 +1375,6 @@ class MapWindow(QWidget):
                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
         if button_reply == QMessageBox.Yes:
-            print('Yes clicked.')
             self.mapWidget.hide()
             self.hide()
 
