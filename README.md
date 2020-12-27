@@ -1,2 +1,3 @@
 # BGRide
-This application is a ride sharing app for Ben Gurion university 
+This application is a ridesharing app for Ben Gurion university students.
+developed by Aviv Amsalem & Alon Gutman.
