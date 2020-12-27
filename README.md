@@ -1,2 +1,2 @@
 # BGRide
-Aviv is SHARMUTA!
+This application is a ride sharing app for Ben Gurion university 
