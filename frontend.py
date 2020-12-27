@@ -493,7 +493,7 @@ class MainWindow(QWidget):
         self.users_statistics_df = self.users_statistics_df.T.drop_duplicates().T
 
         # heat map button
-        self.button_show_all_heat_map = generate_button("Show Everyone Heat Map")
+        self.button_show_all_heat_map = generate_button("All Rides Destinations - Heat Map")
         self.button_show_all_heat_map.clicked.connect(self.show_all_users_heat_map)
         self.layout.addWidget(self.button_show_all_heat_map, 0, 0)
 
@@ -1190,10 +1190,14 @@ class MainWindow(QWidget):
                                        end_location_lng=end_location_lng, exit_time=exit_time, exit_date=exit_date,
                                        radius=radius)
         print(res)
-
-        self.set_after_login_window()
-        self.map.show_rides_on_map(res)
-        self.checkbox.open_checkbox_join_ride()
+        if len(res) > 0:
+            self.set_after_login_window()
+            self.map.show_rides_on_map(res)
+            self.checkbox.open_checkbox_join_ride()
+        else:
+            self.set_after_login_window()
+            no_rides_found_message = "No Results Found!\n"
+            pop_message_box('Search Results', no_rides_found_message)
 
     def join_ride(self):
         """
