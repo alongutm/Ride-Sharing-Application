@@ -1,16 +1,27 @@
 import sys
+import datetime
 from backend import Backend
 from operator import itemgetter
-import pandas as pd
+from pyqtlet import L, MapWidget
+from PyQt5.QtCore import Qt, QRegExp, QDate, pyqtSignal
+from PyQt5.QtGui import QImage, QPalette, QBrush, QIcon, QPixmap, QIntValidator, QRegExpValidator
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QLineEdit, QGridLayout, QMessageBox, \
     QVBoxLayout, QCalendarWidget, QCheckBox, QComboBox
-from PyQt5.QtGui import QImage, QPalette, QBrush, QIcon, QPixmap, QIntValidator, QRegExpValidator
-from PyQt5.QtCore import Qt, QRegExp, QDate, pyqtSignal
-from pyqtlet import L, MapWidget
-import datetime
+
+"""
+This class represent the User Interface of the app.
+all functionalities the app is capable off will be presented through the GUI system.
+"""
 
 
-def generate_button(button_text, size=14):
+def generate_button(button_text: str, size=14):
+    """
+    the function generates a button with a given text to set to the button
+    and a given font_size.
+    :param button_text: String. a text to set to the button.
+    :param size: int. the size of the text.
+    :return: button object.
+    """
     button = QPushButton(button_text)
     font_size = button.font()
     font_size.setPointSize(size)
@@ -23,12 +34,22 @@ def generate_button(button_text, size=14):
 
 
 def generate_label(label_text: str):
+    """
+    the function generates a label with a given text.
+    :param label_text: String. a text to set to the label.
+    :return: label object.
+    """
     label = QLabel(f'<font size="14"><b>{label_text}</b></font>')
     label.setAlignment(Qt.AlignCenter)
     return label
 
 
 def generate_input_text_filed(placeholder_text):
+    """
+    the function generates an input text field.
+    :param placeholder_text: String. a text to set as a placeholder.
+    :return: text input object.
+    """
     input_text_field = QLineEdit()
     font_size = input_text_field.font()
     font_size.setPointSize(14)
@@ -38,7 +59,15 @@ def generate_input_text_filed(placeholder_text):
     return input_text_field
 
 
-def set_date_from_user(day: str, month: str, year: str):
+def set_date_from_user(day: int, month: int, year: str) -> str:
+    """
+    the function receive 2 int and 1 String representing a date and
+    return the date as a string of 'dd-mm-yyyy'
+    :param day: int. represent the day of the date.
+    :param month: int. represent the month of the date.
+    :param year: String. represent the year of the date.
+    :return: String. return a date is String of 'dd-mm-yyyy'.
+    """
     if len(str(day)) == 1:
         day = f'0{day}'
     if len(str(month)) == 1:
@@ -47,7 +76,14 @@ def set_date_from_user(day: str, month: str, year: str):
     return f'{day}-{month}-{year}'
 
 
-def set_time_from_user(hours, minutes):
+def set_time_from_user(hours: str, minutes: str) -> str:
+    """
+    the function receive 2 Strings representing a time and
+    return the time as a string of 'hh-mm'
+    :param hours: String. represent the hours of the time.
+    :param minutes: String. represent the minutes of the time.
+    :return: String. return a time is String of 'hh-mm'.
+    """
     if len(hours) == 1:
         hours = f'0{hours}'
 
@@ -57,7 +93,13 @@ def set_time_from_user(hours, minutes):
     return f'{hours}-{minutes}'
 
 
-def pop_error_message_box(window_title, error_text_message):
+def pop_message_box(window_title: str, error_text_message: str):
+    """
+    the function generate a popup message to the user with a given text
+    to show and a given window title.
+    :param window_title: String. represent the window title text.
+    :param error_text_message: String. represent the window text.
+    """
     msg = QMessageBox()
     msg.setWindowIcon(QIcon("assets/icon.png"))
     msg.setWindowTitle(window_title)
@@ -66,6 +108,9 @@ def pop_error_message_box(window_title, error_text_message):
 
 
 class MainWindow(QWidget):
+    """
+    Main Window class of the GIU application.
+    """
     # map signals
     first_signal = pyqtSignal()
     second_signal = pyqtSignal()
@@ -76,6 +121,9 @@ class MainWindow(QWidget):
     select_ride_signal = pyqtSignal()
 
     def __init__(self, *args):
+        """
+        constructor
+        """
         super(MainWindow, self).__init__(*args)
 
         self.first_signal.connect(self.signal_enable_select_destination)
@@ -147,14 +195,26 @@ class MainWindow(QWidget):
         self.text_field_preferences = None
 
     def signal_enable_select_destination(self):
+        """
+        signal method. the function triggers when the user choose a start location and signal it
+        to the Main Window application.
+        """
         self.location_button.setText('1. Select Start Location  √')
         self.button_destination.setDisabled(False)
 
     def signal_enable_select_date(self):
+        """
+        signal method. the function triggers when the user choose a destination location and signal it
+        to the Main Window application.
+        """
         self.button_destination.setText('2. Select Destination  √')
         self.button_set_calender_window.setDisabled(False)
 
     def set_login_window(self):
+        """
+        first GUI window the user see. a window containing options to login
+        or to move to registration window
+        """
         self.clean_layout()
 
         # username
@@ -183,6 +243,10 @@ class MainWindow(QWidget):
         self.setLayout(self.layout)
 
     def set_register_window(self):
+        """
+        GUI window. a window containing the registration process for new users
+        in the application.
+        """
         self.clean_layout()
 
         # username
@@ -241,39 +305,41 @@ class MainWindow(QWidget):
 
         # register
         self.button_signup = generate_button('Sign up')
-        self.button_signup.clicked.connect(self.sign_up_new_user)
+        self.button_signup.clicked.connect(self.check_new_user_details)
         self.layout.addWidget(self.button_signup, 7, 1)
 
-    def sign_up_new_user(self):
-        if self.check_new_user_details():
-            pass
-
-    def check_new_user_details(self):
+    def check_new_user_details(self) -> bool:
+        """
+        the method checks if the new user registration fits all the condition
+        for creating a new user.
+        if it does - the method will pop a suuccess message.
+        else - the method will pop an error message with an explanation.
+        """
         if len(self.lineEdit_password_register.text()) < 8 or len(self.lineEdit_re_password_register.text()) < 8:
             error_message = "Password too small.\n" \
                             "At list 8 characters."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
         elif self.lineEdit_password_register.text() != self.lineEdit_re_password_register.text():
             error_message = "passwords doesn't match.\n" \
                             "Please try again."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
         elif len(self.lineEdit_phone_register.text()) != 10 or int(self.lineEdit_phone_register.text()) < 0 or \
                 str(self.lineEdit_phone_register.text()[0:2]) != '05':
             error_message = "Illegal phone number.\n" \
                             "Please try again."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
         elif self.lineEdit_first_name_register.text() == '':
             error_message = "You forgot to enter your first name.\n" \
                             "Please try again."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
         elif self.lineEdit_last_name_register.text() == '':
             error_message = "You forgot to enter your last name.\n" \
                             "Please try again."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
 
         elif len(self.lineEdit_email_register.text()) < 16 or self.lineEdit_email_register.text()[
@@ -281,22 +347,22 @@ class MainWindow(QWidget):
             error_message = "Invalid email address.\n" \
                             "only BGU email address - @post.bgu.ac.il suffix.\n" \
                             "Please try again."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
         elif self.lineEdit_username_register.text() == '':
             error_message = "Please pick a username.\n"
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
         elif len(self.lineEdit_username_register.text()) < 3:
             error_message = "Username is too short.\n" \
                             "Please try again."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
 
         elif not self.backend.check_if_username_taken(self.lineEdit_username_register.text()):
             error_message = "Username is already taken.\n" \
                             "Please choose another username."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
 
         if self.backend.register(self.lineEdit_username_register.text(), self.lineEdit_first_name_register.text(),
@@ -304,19 +370,27 @@ class MainWindow(QWidget):
                                  self.lineEdit_email_register.text(), self.lineEdit_phone_register.text()):
             self.set_login_window()
             success_message = "Succeeded creating a new account!.\n"
-            pop_error_message_box('Signup Succeeded', success_message)
+            pop_message_box('Signup Succeeded', success_message)
+            self.set_register_window()
             return True
         else:
             error_message = "Something went wrong.\n" \
                             "Please try again later."
-            pop_error_message_box('Signup Error', error_message)
+            pop_message_box('Signup Error', error_message)
             return False
 
     def clean_layout(self):
+        """
+        the method cleans all the widgets in the layout.
+        the method used for transitions between screens in the main window app.
+        """
         for i in reversed(range(self.layout.count())):
             self.layout.itemAt(i).widget().setParent(None)
 
     def set_logo(self):
+        """
+        the method sets the application logo.
+        """
         label_image = QLabel(self)
         label_image.setAlignment(Qt.AlignCenter)
         pixmap = QPixmap("assets/logo.png")
@@ -326,6 +400,9 @@ class MainWindow(QWidget):
         label_image.move(355, 3)
 
     def set_footer(self):
+        """
+        the method sets a footer in the bottom of the application window.
+        """
         footer = QLabel('<font size="5">This application developed by Alon Gutman & Aviv Amsellem.</font>', self)
         footer.setFixedWidth(900)
         footer.setAlignment(Qt.AlignCenter)
@@ -334,6 +411,10 @@ class MainWindow(QWidget):
         footer.move(0, 820)
 
     def check_credentials(self):
+        """
+        the mehtod checks if the credentials inserted by the user is legal
+        and exist in the application database.
+        """
         msg = QMessageBox()
         msg.setWindowIcon(QIcon("assets/icon.png"))
 
@@ -358,6 +439,9 @@ class MainWindow(QWidget):
         # login_res = self.backend.login(self.lineEdit_username, self.lineEdit_password)
 
     def set_background_image(self):
+        """
+        the method sets the image background in the main window application.
+        """
         # set background
         oImage = QImage("assets/background.jpg")
         # sImage = oImage.scaled(QSize(900, 800))
@@ -366,6 +450,9 @@ class MainWindow(QWidget):
         self.setPalette(palette)
 
     def set_after_login_window(self):
+        """
+        after login window. the window will contain all the features available to the user/admin.
+        """
         self.clean_layout()
         self.map.is_search = False
 
@@ -396,6 +483,10 @@ class MainWindow(QWidget):
         self.setLayout(self.layout)
 
     def open_statistics_window(self):
+        """
+        a window only the application admin can see and have permissions to use.
+        the window will contain seeing information about the users in the app.
+        """
         self.clean_layout()
 
         self.users_statistics_df = self.backend.get_all_users()
@@ -450,13 +541,22 @@ class MainWindow(QWidget):
         self.layout.addWidget(self.button_back_to_after_login_window, 5, 0)
 
     def show_all_users_heat_map(self):
+        """
+        the method shows to the admin the heat map of all the users in the system
+        together.
+        """
         self.backend.all_rides_heat_maps_folium()
 
     def show_user_heat_map(self):
+        """
+        the method shows to the admin the heat map of a specific user.
+        """
         self.backend.all_rides_by_user_heat_maps_folium(self.full_username_dict[self.users_drop_list.currentText()])
 
     def get_user_preferences(self):
-
+        """
+        the method shows to the admin the 3 most types of rides the user is taking.
+        """
         if self.text_field_preferences is not None:
             self.text_field_preferences.setText('')
 
@@ -479,6 +579,10 @@ class MainWindow(QWidget):
         self.layout.addWidget(self.text_field_preferences, 4, 0)
 
     def set_add_ride_window(self):
+        """
+        add new ride window. a window contaning all the field required from the
+        user to enter a new ride he want to do.
+        """
         self.clean_layout()
         self.selected_date = None
 
@@ -584,7 +688,11 @@ class MainWindow(QWidget):
         self.setLayout(self.layout)
 
     def choose_ride_purposes(self):
-
+        """
+        the method get all amenities that exist in a radius of 300 meters that exists
+        from the location the user chose and pops a message checkbox for the user to check
+        what is the purpose of the ride.
+        """
         res = self.backend.get_ride_purposes_from_google_maps(self.map.locations['end_location'].latLng[0],
                                                               self.map.locations['end_location'].latLng[1])
         destination_address = self.backend.get_address_by_lan_lng(self.map.locations['end_location'].latLng[0],
@@ -593,7 +701,11 @@ class MainWindow(QWidget):
         self.checkbox.open_checkbox_purposes(res, destination_address)
 
     def add_new_ride(self):
-
+        """
+        the method add a new ride to the database and pops a success message to
+        the user if it succeeded.
+        else - pops an error message.
+        """
         uid = self.current_user_id
         start_location_lat = self.map.locations['start_location'].latLng[0]
         start_location_lng = self.map.locations['start_location'].latLng[1]
@@ -613,79 +725,94 @@ class MainWindow(QWidget):
                                   num_of_riders_capacity=num_of_riders_capacity, cost=cost, ride_kind=ride_kind)
 
         success_message = "Succeeded creating a new ride!.\n"
-        pop_error_message_box('Signup Succeeded', success_message)
+        pop_message_box('Signup Succeeded', success_message)
         self.set_after_login_window()
 
     def close_passengers_field_and_set_button(self):
+        """
+        the method close and open the necessary fields inthe layout.
+        """
         if self.text_field_passengers.text() != '':
-            self.button_set_calender_window.show()  # 2
-            self.calendar.hide()  # 3
-            self.next_button.hide()  # 4
-            self.button_set_time_window.show()  # 5
-            self.text_field_hours.hide()  # 6.1
-            self.text_field_minutes.hide()  # 6.2
-            self.button_set_time.hide()  # 7
-            self.button_select_cost.show()  # 8
-            self.text_field_cost.hide()  # 9
-            self.button_set_cost.hide()  # 10
-            self.button_select_riders_amount.show()  # 11
-            self.text_field_passengers.hide()  # 12
-            self.button_set_riders_amount.hide()  # 13
+            self.button_set_calender_window.show()
+            self.calendar.hide()
+            self.next_button.hide()
+            self.button_set_time_window.show()
+            self.text_field_hours.hide()
+            self.text_field_minutes.hide()
+            self.button_set_time.hide()
+            self.button_select_cost.show()
+            self.text_field_cost.hide()
+            self.button_set_cost.hide()
+            self.button_select_riders_amount.show()
+            self.text_field_passengers.hide()
+            self.button_set_riders_amount.hide()
 
             self.button_select_riders_amount.setText('6. Select Passengers Amount  √')
             self.button_add_new_ride.setDisabled(False)
 
     def open_passengers_field_and_set_button(self):
-        self.button_set_calender_window.show()  # 2
-        self.calendar.hide()  # 3
-        self.next_button.hide()  # 4
-        self.button_set_time_window.show()  # 5
-        self.text_field_hours.hide()  # 6.1
-        self.text_field_minutes.hide()  # 6.2
-        self.button_set_time.hide()  # 7
-        self.button_select_cost.show()  # 8
-        self.text_field_cost.hide()  # 9
-        self.button_set_cost.hide()  # 10
-        self.button_select_riders_amount.hide()  # 11
-        self.text_field_passengers.show()  # 12
-        self.button_set_riders_amount.show()  # 13
+        """
+        the method close and open the necessary fields inthe layout.
+        """
+        self.button_set_calender_window.show()
+        self.calendar.hide()
+        self.next_button.hide()
+        self.button_set_time_window.show()
+        self.text_field_hours.hide()
+        self.text_field_minutes.hide()
+        self.button_set_time.hide()
+        self.button_select_cost.show()
+        self.text_field_cost.hide()
+        self.button_set_cost.hide()
+        self.button_select_riders_amount.hide()
+        self.text_field_passengers.show()
+        self.button_set_riders_amount.show()
 
     def close_cost_field_and_button(self):
+        """
+        the method close and open the necessary fields inthe layout.
+        """
         if self.text_field_cost.text() != '':
-            self.button_set_calender_window.show()  # 2
-            self.calendar.hide()  # 3
-            self.next_button.hide()  # 4
-            self.button_set_time_window.show()  # 5
-            self.text_field_hours.hide()  # 6.1
-            self.text_field_minutes.hide()  # 6.2
-            self.button_set_time.hide()  # 7
-            self.button_select_cost.show()  # 8
-            self.text_field_cost.hide()  # 9
-            self.button_set_cost.hide()  # 10
-            self.button_select_riders_amount.show()  # 11
-            self.text_field_passengers.hide()  # 12
-            self.button_set_riders_amount.hide()  # 13
+            self.button_set_calender_window.show()
+            self.calendar.hide()
+            self.next_button.hide()
+            self.button_set_time_window.show()
+            self.text_field_hours.hide()
+            self.text_field_minutes.hide()
+            self.button_set_time.hide()
+            self.button_select_cost.show()
+            self.text_field_cost.hide()
+            self.button_set_cost.hide()
+            self.button_select_riders_amount.show()
+            self.text_field_passengers.hide()
+            self.button_set_riders_amount.hide()
 
             self.button_select_cost.setText('5. Select Cost Per Person  √')
             self.button_select_riders_amount.setDisabled(False)
 
     def show_cost_field_and_button(self):
-        self.button_set_calender_window.show()  # 2
-        self.calendar.hide()  # 3
-        self.next_button.hide()  # 4
-        self.button_set_time_window.show()  # 5
-        self.text_field_hours.hide()  # 6.1
-        self.text_field_minutes.hide()  # 6.2
-        self.button_set_time.hide()  # 7
-        self.button_select_cost.hide()  # 8
-        self.text_field_cost.show()  # 9
-        self.button_set_cost.show()  # 10
-        self.button_select_riders_amount.show()  # 11
-        self.text_field_passengers.hide()  # 12
-        self.button_set_riders_amount.hide()  # 13
+        """
+        the method close and open the necessary fields inthe layout.
+        """
+        self.button_set_calender_window.show()
+        self.calendar.hide()
+        self.next_button.hide()
+        self.button_set_time_window.show()
+        self.text_field_hours.hide()
+        self.text_field_minutes.hide()
+        self.button_set_time.hide()
+        self.button_select_cost.hide()
+        self.text_field_cost.show()
+        self.button_set_cost.show()
+        self.button_select_riders_amount.show()
+        self.text_field_passengers.hide()
+        self.button_set_riders_amount.hide()
 
     def set_cost_field(self):
-
+        """
+        the generates a an input text field for the cost.
+        :return: text field object.
+        """
         # create hours field
         text_field = QLineEdit()
         font_size = text_field.font()
@@ -696,8 +823,13 @@ class MainWindow(QWidget):
 
         return text_field
 
-    def set_hours_times_fields(self, row) -> tuple:
-
+    def set_hours_times_fields(self, row: int) -> tuple:
+        """
+        the function generates a text input of hours and minutes and add it
+        to the layout for a given row.
+        :param row: int. the row to insert the widgets.
+        :return: tuple. text field objects.
+        """
         # set validators to the hour and minute fields
         hours_validator = QIntValidator(0, 23, self)
         minutes_validator = QIntValidator(0, 60, self)
@@ -729,49 +861,66 @@ class MainWindow(QWidget):
         return text_field_hours, text_field_minutes
 
     def set_time_fields(self):
-        self.button_set_calender_window.show()  # 2
-        self.calendar.hide()  # 3
-        self.next_button.hide()  # 4
-        self.button_set_time_window.hide()  # 5
-        self.text_field_hours.show()  # 6.1
-        self.text_field_minutes.show()  # 6.2
-        self.button_set_time.show()  # 7
-        self.button_select_cost.show()  # 8
-        self.text_field_cost.hide()  # 9
-        self.button_set_cost.hide()  # 10
-        self.button_select_riders_amount.show()  # 11
-        self.text_field_passengers.hide()  # 12
-        self.button_set_riders_amount.hide()  # 13
+        """
+        the method close and open the necessary fields inthe layout.
+        """
+        self.button_set_calender_window.show()
+        self.calendar.hide()
+        self.next_button.hide()
+        self.button_set_time_window.hide()
+        self.text_field_hours.show()
+        self.text_field_minutes.show()
+        self.button_set_time.show()
+        self.button_select_cost.show()
+        self.text_field_cost.hide()
+        self.button_set_cost.hide()
+        self.button_select_riders_amount.show()
+        self.text_field_passengers.hide()
+        self.button_set_riders_amount.hide()
 
     def close_time_fields_and_button(self):
+        """
+        the method close and open the necessary fields in the layout.
+        """
         if self.text_field_hours.text() != '' and self.text_field_minutes.text() != '':
-            self.button_set_calender_window.show()  # 2
-            self.calendar.hide()  # 3
-            self.next_button.hide()  # 4
-            self.button_set_time_window.show()  # 5
-            self.text_field_hours.hide()  # 6.1
-            self.text_field_minutes.hide()  # 6.2
-            self.button_set_time.hide()  # 7
-            self.button_select_cost.show()  # 8
-            self.text_field_cost.hide()  # 9
-            self.button_set_cost.hide()  # 10
-            self.button_select_riders_amount.show()  # 11
-            self.text_field_passengers.hide()  # 12
-            self.button_set_riders_amount.hide()  # 13
+            self.button_set_calender_window.show()
+            self.calendar.hide()
+            self.next_button.hide()
+            self.button_set_time_window.show()
+            self.text_field_hours.hide()
+            self.text_field_minutes.hide()
+            self.button_set_time.hide()
+            self.button_select_cost.show()
+            self.text_field_cost.hide()
+            self.button_set_cost.hide()
+            self.button_select_riders_amount.show()
+            self.text_field_passengers.hide()
+            self.button_set_riders_amount.hide()
 
             self.button_set_time_window.setText('4. Select Exit Time  √')
             self.button_select_cost.setDisabled(False)
 
     def set_map_loc_selector(self):
+        """
+        the method assign in the Map Window a new start location
+        is not selected yet or reselected and opn the map window.
+        """
         self.map.is_chose_start_location = False
         self.map.show_map()
 
     def set_map_dest_selector(self):
+        """
+        the method assign in the Map Window a new destination
+        is not selected yet or reselected and opn the map window.
+        """
         self.map.is_chose_start_location = True
         self.map.show_map()
 
     def show_calender(self):
-        self.button_set_calender_window.hide()  # 2
+        """
+        the method close and open the necessary fields in the layout.
+        """
+        self.button_set_calender_window.hide()
         self.calendar.show()  # 3
         self.next_button.show()  # 4
         self.button_set_time_window.show()  # 5
@@ -786,6 +935,10 @@ class MainWindow(QWidget):
         self.button_set_riders_amount.hide()  # 13
 
     def set_calender(self):
+        """
+        the method generates the calender widget to show to the user
+        when it necessary to him insert a certain date
+        """
         # set calendar
         my_calendar = QCalendarWidget(self)
         # self.calendar.move(112, 112)
@@ -806,6 +959,9 @@ class MainWindow(QWidget):
         return my_calendar
 
     def close_calender(self):
+        """
+        the method close and open the necessary fields in the layout.
+        """
         if self.selected_date != None:
             self.button_set_calender_window.show()  # 2
             self.calendar.hide()  # 3
@@ -827,6 +983,10 @@ class MainWindow(QWidget):
             self.setLayout(self.layout)
 
     def open_search_window(self):
+        """
+        search window. the method show to the user what the search window with all the required
+        fields he need to fill for finding a ride that fits his needs.
+        """
         self.clean_layout()
         self.map.is_search = True
 
@@ -905,10 +1065,16 @@ class MainWindow(QWidget):
         self.setLayout(self.layout)
 
     def signal_enable_select_date_search(self):
+        """
+        signal method. the method triggers once a destination if filled by the user.
+        """
         self.button_destination_search.setText('1. Select Destination  √')
         self.button_set_calender_window_search.setDisabled(False)
 
     def show_calender_search(self):
+        """
+        the method close and open the necessary fields in the layout.
+        """
         self.button_set_calender_window_search.hide()  # 1
         self.calendar.show()  # 2
         self.button_set_date_search.show()  # 3
@@ -921,6 +1087,9 @@ class MainWindow(QWidget):
         self.button_set_radius.hide()  # 9
 
     def close_calender_search(self):
+        """
+        the method close and open the necessary fields in the layout.
+        """
         if self.selected_date is not None:
             self.button_set_calender_window_search.show()  # 1
             self.calendar.hide()  # 2
@@ -937,6 +1106,9 @@ class MainWindow(QWidget):
             self.button_select_exit_time.setDisabled(False)
 
     def open_time_fields_search(self):
+        """
+        the method close and open the necessary fields in the layout.
+        """
         self.button_set_calender_window_search.show()  # 1
         self.calendar.hide()  # 2
         self.button_set_date_search.hide()  # 3
@@ -949,6 +1121,9 @@ class MainWindow(QWidget):
         self.button_set_radius.hide()  # 9
 
     def close_time_fields_search(self):
+        """
+        the method close and open the necessary fields in the layout.
+        """
         if self.text_field_hours_search.text() != '' and self.text_field_minutes_search.text() != '':
             self.button_set_calender_window_search.show()  # 1
             self.calendar.hide()  # 2
@@ -965,6 +1140,9 @@ class MainWindow(QWidget):
             self.button_select_radius.setDisabled(False)
 
     def open_radius_field_search(self):
+        """
+        the method close and open the necessary fields in the layout.
+        """
         self.button_set_calender_window_search.show()  # 1
         self.calendar.hide()  # 2
         self.button_set_date_search.hide()  # 3
@@ -977,6 +1155,9 @@ class MainWindow(QWidget):
         self.button_set_radius.show()  # 9
 
     def close_radius_field_search(self):
+        """
+        the method close and open the necessary fields in the layout.
+        """
         if self.text_field_radius.text() != '':
             self.button_set_calender_window_search.show()  # 1
             self.calendar.hide()  # 2
@@ -993,6 +1174,10 @@ class MainWindow(QWidget):
             self.button_select_radius.setText('4. Set Maximal Radius From Destination  √')
 
     def search_rides(self):
+        """
+        the function search a relevant rides that fits the user need by the inmformation
+        he filled.
+        """
         uid = self.current_user_id
         end_location_lat = self.map.search_location.latLng[0]
         end_location_lng = self.map.search_location.latLng[1]
@@ -1011,26 +1196,38 @@ class MainWindow(QWidget):
         self.checkbox.open_checkbox_join_ride()
 
     def join_ride(self):
+        """
+        the method add the user to an existing ride.
+        """
         self.map.mapWidget.hide()
         self.map.hide()
 
         is_succeeded, error = self.backend.join_ride(self.current_user_id, self.checkbox.text_field.text())
         if is_succeeded:
-            pop_error_message_box('Join Ride', 'You successfully joined the ride!')
+            pop_message_box('Join Ride', 'You successfully joined the ride!')
         else:
-            pop_error_message_box('Join Ride', error)
+            pop_message_box('Join Ride', error)
 
     def save_date(self):
+        """
+        the method saves the chosen date by the user.
+        """
         self.selected_date = self.calendar.selectedDate().getDate()
         print(f'{self.selected_date[2]}-{self.selected_date[1]}-{self.selected_date[0]}')
 
 
 class MapWindow(QWidget):
+    """
+    the class shows the map to search and add rides.
+    """
     first_signal = pyqtSignal()
     second_signal = pyqtSignal()
     third_signal = pyqtSignal()
 
     def __init__(self, parent, *args):
+        """
+        constructor.
+        """
         # Setting up the widgets and layout
         super(MapWindow, self).__init__(*args)
 
@@ -1069,14 +1266,26 @@ class MapWindow(QWidget):
         self.map.addLayer(self.marker)
 
     def show_map(self):
+        """
+        the method shows to the user the map
+        :return:
+        """
         self.mapWidget.show()
         self.show()
 
-    def get_lat_and_lng(self):
+    def get_lat_and_lng(self) -> tuple:
+        """
+        the method return the coordinates of the chosen spot in the map.
+        :return tuple (int, int): the land and lat coordinates.
+        """
         if self.current_lat is not None:
             return self.current_lat, self.current_lang
 
-    def check_selected_location(self):
+    def check_selected_location(self) -> bool:
+        """
+        the method checks if the user already selected a start location.
+        :return: boolean. True if he does. else - False.
+        """
         if self.current_lang is None:
             return False
         self.hide()
@@ -1085,7 +1294,11 @@ class MapWindow(QWidget):
         self.current_lat = None
         return True
 
-    def check_selected_destination(self):
+    def check_selected_destination(self) -> bool:
+        """
+        the method checks if the user already selected a destionation.
+        :return: boolean. True if he does. else - False.
+        """
         if self.current_lang is None:
             return False
         self.hide()
@@ -1095,17 +1308,25 @@ class MapWindow(QWidget):
         return True
 
     def set_new_ride_on_click(self):
+        """
+        listener method. the method triggers once a clicked as been made on the map.
+        """
         if self.is_unset_click_map:
             self.map.clicked.connect(lambda x: self.set_lng_and_lat(x))
             self.is_unset_click_map = False
 
     def unset_new_ride_on_click(self):
+        """
+        the method unbind the clicker listener from the map.
+        """
         if not self.is_unset_click_map:
             self.map.clicked.disconnect()
             self.is_unset_click_map = True
 
     def set_lng_and_lat(self, location_pressed):
-
+        """
+        the method triggers once has been made on the map.
+        """
         # get current x,y of user's mouse press
         lat = location_pressed['latlng']['lat']
         lang = location_pressed['latlng']['lng']
@@ -1158,6 +1379,10 @@ class MapWindow(QWidget):
             self.hide()
 
     def show_rides_on_map(self, places_list):
+        """
+        the method receives a list of coordinates by lat and lang and mark the map with the data of the rides.
+        :param places_list: list. a list of the rides and their info.
+        """
         self.clean_selected_locations()
 
         for place in places_list:
@@ -1195,6 +1420,9 @@ class MapWindow(QWidget):
         self.show_map()
 
     def clean_selected_locations(self):
+        """
+        the method removes from the map all the locations on the map.
+        """
         for key in self.locations.keys():
             self.map.removeLayer(self.locations[key])
 
@@ -1209,11 +1437,17 @@ class MapWindow(QWidget):
 
 
 class CheckBox(QWidget):
+    """
+    checkbox class. the class is used to show/receive data to/from the user.
+    """
     checkbox_signal = pyqtSignal()
     select_ride_signal = pyqtSignal()
 
     def __init__(self, parent, *args):
         super(CheckBox, self).__init__(*args)
+        """
+        constructor.
+        """
 
         # set background and icon to the checkbox window
         self.set_background_image()
@@ -1234,6 +1468,11 @@ class CheckBox(QWidget):
         self.text_field = None
 
     def open_checkbox_purposes(self, potential_ride_purpose_list: list, destination_address: str):
+        """
+        the method open a checkbox to ask the user what is the purpose of his ride.
+        :param potential_ride_purpose_list: list. list of all the amenities in the area of his destination.
+        :param destination_address: String. containg the lat and lang of the user destination.
+        """
         self.setWindowTitle('Ride Purposes')
 
         self.clearLayout(self.checkbox_layout)
@@ -1266,6 +1505,9 @@ class CheckBox(QWidget):
         self.show()
 
     def open_checkbox_join_ride(self):
+        """
+        the message opens a checkbox to receive from the user a ride id that the user would like to join.
+        """
         self.clearLayout(self.checkbox_layout)
         self.setWindowTitle('Join Ride')
 
@@ -1294,6 +1536,10 @@ class CheckBox(QWidget):
         self.show()
 
     def get_selected_ride(self):
+        """
+        the method close and signal the main window once the user chose a
+        ride to join to.
+        """
         if self.text_field.text() != '':
             # close window
             self.hide()
@@ -1301,6 +1547,10 @@ class CheckBox(QWidget):
             self.select_ride_signal.emit()
 
     def clearLayout(self, layout):
+        """
+        the method cleans the checkbox from all the widgets in it.
+        :param layout: the checkbox layout.
+        """
         if layout is not None:
             while layout.count():
                 item = layout.takeAt(0)
@@ -1311,6 +1561,10 @@ class CheckBox(QWidget):
                     self.clearLayout(item.layout())
 
     def get_selected_purposes(self):
+        """
+        the method triggers once the user chose his ride purposes and signal about it to
+        the main window of the app.
+        """
         if len(self.check_box_list) == 0:
             # close checkbox
             self.hide()
@@ -1331,6 +1585,9 @@ class CheckBox(QWidget):
                 self.checkbox_signal.emit()
 
     def set_background_image(self):
+        """
+        the method sets the image background of the checkbox.
+        """
         # set background
         oImage = QImage("assets/background.jpg")
         palette = QPalette()
@@ -1342,8 +1599,6 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     window = MainWindow()
-
-    # window = CheckBox()
 
     window.show()
 

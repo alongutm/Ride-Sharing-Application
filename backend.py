@@ -1,17 +1,21 @@
-from azureDatabase import AzureDatabase
-import googlemaps
-from math import radians, cos, sin, asin, sqrt
-import datetime
-import folium
-from folium.plugins import HeatMap
-import webbrowser
-import pandas as pd
 import os
+import folium
+import datetime
+import googlemaps
+import pandas as pd
+from folium.plugins import HeatMap
+from azureDatabase import AzureDatabase
+from math import radians, cos, sin, asin, sqrt
 
 
 class Backend:
-
+    """
+    this class is responsible for all the application logic.
+    """
     def __init__(self):
+        """
+        constructor
+        """
         self.db = AzureDatabase()
 
         self.g_maps_api_key = 'AIzaSyD2mZwWRBcD3vbRFmvtJzcQCyCpNpzkrws'
@@ -23,7 +27,16 @@ class Backend:
                                    'stadium', 'night_club', 'library', 'home_goods_store', 'movie_theater', 'bar',
                                    'train_station']
 
-    def login(self, username, password) -> tuple:
+    def login(self, username: str, password: str) -> tuple:
+        """
+        the method check in the database if the user exist and if the user the password fits the the given user.
+        the method also checks if the given user have admin privileges and signal about it if it does.
+        :param username: String. the inserted username.
+        :param password: String. the isnerted password.
+        :return: tuple (bool, bool, int). first boolean - if the user and the password are correct.
+        second boolean - if the user is admin user.
+        third value - the user id of the user.
+        """
 
         terms_dict = {'username': username, 'password': password}
         results = self.db.select_query('Users', terms_dict)
@@ -46,7 +59,12 @@ class Backend:
         else:
             return True, False, user_id
 
-    def check_if_username_taken(self, username):
+    def check_if_username_taken(self, username) -> bool:
+        """
+        the method chceks in the database if the given username is already taken by another user.
+        :param username: String. the inserted username.
+        :return: boolean. True - of the user already taken. else - False.
+        """
         terms_dict = {'username': username}
 
         results = self.db.select_query('Users', terms_dict)
@@ -56,7 +74,17 @@ class Backend:
 
         return True
 
-    def register(self, username, first_name, last_name, password, email, phone_number) -> bool:
+    def register(self, username: str, first_name: str, last_name: str, password: str, email: str, phone_number: str) -> bool:
+        """
+        the method register the new user to the database and return True if it does.
+        :param username: String. the inserted username.
+        :param first_name: String. the inserted first name.
+        :param last_name: String. the inserted last name.
+        :param password: String. the inserted password.
+        :param email: String. the inserted rmail.
+        :param phone_number: String. the inserted phone number.
+        :return: boolean. True - if succeeded. else - return False.
+        """
 
         values_dict = {'username': username,
                        'firstName': first_name,
@@ -80,6 +108,20 @@ class Backend:
     def add_new_ride(self, user_id: int, start_location_lat: str, start_location_lng: str, end_location_lat: str,
                      end_location_lng: str, exit_time: str, exit_date: str, num_of_riders_capacity: list,
                      cost: int, ride_kind: list) -> bool:
+        """
+        the method add a new ride to the database and return True if succeeded.
+        :param user_id: int. the user id who inserted the new ride.
+        :param start_location_lat: String. the start location lat the user chose.
+        :param start_location_lng: String. the start location lang the user chose.
+        :param end_location_lat: String. the destination lat the user chose.
+        :param end_location_lng: String. the destination lang the user chose.
+        :param exit_time: String. the exit time the user chose.
+        :param exit_date: String. the exit Date the user chose.
+        :param num_of_riders_capacity: String. the amount of riders the user want take with.
+        :param cost: String. the cost of the ride the user ask for for every passenger.
+        :param ride_kind: list. a list of all the amenities the user want to visit.
+        :return: boolean. True - if succeeded. else - return False.
+        """
 
         ride_kind_str = ','.join(ride_kind)
 
@@ -105,7 +147,17 @@ class Backend:
         return True
 
     def search_ride(self, user_id: int, end_location_lat: float, end_location_lng: float, exit_time: str, exit_date: str,
-                    radius: str) -> bool:
+                    radius: str) -> list:
+        """
+        the method search for potential rides in the database for the user.
+        :param user_id: the id if the user that search for rides to join.
+        :param end_location_lat: String. the destination lat the user want to reach.
+        :param end_location_lng: String. the destination lang the user want to reach.
+        :param exit_time: String. the exit date the user need the ride.
+        :param exit_date: String. the exit time the user need the ride.
+        :param radius: String. the maximal radius the user will agree to "settle"
+        :return: list. a list of all the potential rides that fits the user need for a ride.
+        """
 
         # select rides with the user's date
         results = self.db.select_query('Rides', {'exitDate': exit_date})
@@ -139,6 +191,15 @@ class Backend:
         return results_list
 
     def join_ride(self, user_id_passenger: int, ride_id: int) -> tuple:
+        """
+        the method add a user to a an existing ride.
+        the method return True or False if it succeeded to join the ride or not
+        with a suitable message.
+        :param user_id_passenger: int. the user id that want to join the ride.
+        :param ride_id: int. the ride id the user want to join to.
+        :return: tuple (bool, String). first value - True of the succeeded joining the ride - else False.
+        second value - a suitable message the pop to the user.
+        """
         terms_dict = {'rid': ride_id}
 
         rides_results = self.db.select_query('Rides', terms_dict)
@@ -181,7 +242,11 @@ class Backend:
 
         return True, "You have been successfully joined the ride!"
 
-    def get_all_users(self):
+    def get_all_users(self) -> pd.DataFrame:
+        """
+        the method returns in a data frame all the users that exist in the database.
+        :return: data frame. a data frame of all the users in the database.
+        """
         results = self.db.select_query('Users, Preferences', terms_dict={'Users.uid': 'Preferences.uid'},
                                        is_string=True)
 
@@ -210,6 +275,9 @@ class Backend:
                 return current_res['formatted_address']
 
     def all_rides_heat_maps_folium(self):
+        """
+        the method creates a heat map of all the users rides they took.
+        """
         results = self.db.select_query('Rides, Riders', {'Riders.rid': 'Rides.rid'}, True)
         locations = []
         for res in results:
@@ -229,6 +297,10 @@ class Backend:
         # webbrowser.open('file://' + filepath)
 
     def all_rides_by_user_heat_maps_folium(self, user_id: int):
+        """
+        the method creates a heat map of all the rides a specific user took.
+        :param user_id: int. the user id of a specific user the show his heat map.
+        """
         terms_dict = {'Riders.rid': 'Rides.rid',
                       'Riders.uid': user_id}
         results = self.db.select_query('Riders, Rides', terms_dict, True)
@@ -250,8 +322,7 @@ class Backend:
         # webbrowser.open('file://' + filepath)
 
 
-
-def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
+def check_if_close_enough(x_loc_main: float, y_loc_main: float, x_loc: float, y_loc: float, max_dist: int):
     """
        Calculate the great circle distance between two points
        on the earth (specified in decimal degrees)
@@ -268,7 +339,15 @@ def check_if_close_enough(x_loc_main, y_loc_main, x_loc, y_loc, max_dist):
     return c * r * 1000 < int(max_dist)
 
 
-def filter_by_time(results, date_user, hour_user):
+def filter_by_time(results: list, date_user: str, hour_user: str) -> list:
+    """
+    the method filters all the results by the date inserted by the user,
+    and also filters the time inserted by the user and the rides in a gap of 2 hours between.
+    :param results: list. a list of all the results from the database.
+    :param date_user: String. the inserted date from the user.
+    :param hour_user: String. the inserted time from the user.
+    :return: list. a list of all the filtered results.
+    """
     filtered_res = []
     for res in results:
         time_user_earlier = datetime.time(int(hour_user[:2]) + 2, int(hour_user[3:]), 00)
@@ -281,14 +360,30 @@ def filter_by_time(results, date_user, hour_user):
     return filtered_res
 
 
-def is_time_between(begin_time, end_time, check_time):
+def is_time_between(begin_time: int, end_time: int, check_time: int) -> bool:
+    """
+    the methodchecks if a ride time is in the inserted time by the user in a gap of 2 hours between.
+    :param begin_time: the earliest time in the 2 hours gap from the time the user inserted.
+    :param end_time:the latest time in the 2 hours gap from the time the user inserted
+    :param check_time: the exit time of the ride.
+    :return: boolean. True - if the the exit time is in the 2 hours gap.
+    """
     if begin_time < end_time:
         return begin_time <= check_time <= end_time
     else:  # crosses midnight
         return check_time >= begin_time or check_time <= end_time
 
 
-def filter_by_radius(results_after_date_check, x_user, y_user, radius):
+def filter_by_radius(results_after_date_check: list, x_user: str, y_user: str, radius: str) -> list:
+    """
+    the method checks if the rides in the list are in the radius the user inserted
+    and return a list of the rides that passed the term above.
+    :param results_after_date_check: list. a list of rides.
+    :param x_user: String. the destination lat the user chose.
+    :param y_user: String. the destination lang the user chose.
+    :param radius: String. the radius the user agreed to "settle".
+    :return: list. a list of filtered rides.
+    """
     results = []
     for res in results_after_date_check:
         x = float(res[4])
@@ -297,6 +392,13 @@ def filter_by_radius(results_after_date_check, x_user, y_user, radius):
             results.append(res)
     return results
 
+
 def generate_base_map(default_location=[31.26176079969529, 34.7982650268944], default_zoom_start=15):
+    """
+    the function generates a basic heat map.
+    :param default_location: list. a list containing a lat and lang to where to focus on the globe.
+    :param default_zoom_start: int. the level of the zoom in the map.
+    :return: base map object.
+    """
     base_map = folium.Map(location=default_location, control_scale=True, zoom_start=default_zoom_start)
     return base_map
