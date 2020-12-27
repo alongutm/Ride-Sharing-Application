@@ -1,5 +1,8 @@
 import sys
 import datetime
+
+from PyQt5 import QtCore
+
 from backend import Backend
 from operator import itemgetter
 from pyqtlet import L, MapWidget
@@ -1466,6 +1469,7 @@ class CheckBox(QWidget):
         self.chosen_purposes = []
         self.check_box_list = []
         self.checkbox_layout = QVBoxLayout()
+        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
         self.button_ok = None
         self.label = None
